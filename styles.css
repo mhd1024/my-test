@@ -35,7 +35,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { overflow-x: clip; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { -webkit-tap-highlight-color: transparent; overflow-x: clip; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -50,7 +50,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 ul { list-style: none; }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 svg.fill { fill: currentColor; stroke: none; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid rgba(170, 185, 255, .75); outline-offset: 3px; }
 
 /* ---------- background ---------- */
 #silk { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; }
@@ -67,42 +68,50 @@ svg.fill { fill: currentColor; stroke: none; }
     radial-gradient(50% 40% at 10% 85%, rgba(170, 140, 255, .2), transparent 70%);
 }
 
-/* ---------- liquid glass material ---------- */
+/* ---------- liquid glass material ----------
+   Base: clear glass + specular rim + inner light/caustics.
+   On Chromium, script.js upgrades each .glass with a real SVG
+   refraction filter (edge lensing + subtle chromatic dispersion). */
 .glass {
   position: relative;
   isolation: isolate;
+  --frost: 3;
   background:
-    linear-gradient(165deg, var(--glass-top), var(--glass-bot) 55%),
+    linear-gradient(165deg, rgba(255,255,255,.075), rgba(255,255,255,.012) 45%, rgba(255,255,255,.035)),
     var(--glass-tint);
-  -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.08);
-  backdrop-filter: blur(22px) saturate(180%) brightness(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(170%) brightness(1.08);
+  backdrop-filter: blur(14px) saturate(170%) brightness(1.08);
   box-shadow:
-    inset 0 1px 0 0 var(--rim),             /* top specular rim */
-    inset 0 -1px 0 0 var(--rim-soft),        /* bottom rim */
-    inset 1px 0 0 0 rgba(255,255,255,.08),
-    inset -1px 0 0 0 rgba(255,255,255,.05),
-    inset 0 0 24px rgba(170, 180, 255, .06), /* internal scatter */
+    inset 0 1px 0 0 var(--rim),                          /* top specular line */
+    inset 0 -1px 0 0 rgba(255,255,255,.10),              /* bottom rim */
+    inset 0 0 0 .5px rgba(255,255,255,.10),              /* hairline edge */
+    inset 10px 12px 22px -14px rgba(255,255,255,.28),     /* light entering top-left */
+    inset -12px -16px 26px -16px rgba(140,150,255,.30),  /* caustic bottom-right */
     var(--shadow);
 }
-/* refraction edge: thicker glass rim that catches light */
+/* thick-glass rim: bright where light hits (top-left / bottom-right), dim on the sides */
 .glass::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
-  padding: 1.2px;
-  background: linear-gradient(135deg,
-    rgba(255,255,255,.55) 0%, rgba(255,255,255,.06) 22%,
-    rgba(160,170,255,.0) 45%, rgba(140,150,255,.12) 70%,
-    rgba(255,255,255,.35) 100%);
+  padding: 1.4px;
+  background:
+    linear-gradient(140deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.18) 14%, transparent 32%),
+    linear-gradient(320deg, rgba(200,205,255,.6) 0%, rgba(170,180,255,.12) 16%, transparent 34%),
+    linear-gradient(rgba(255,255,255,.08), rgba(255,255,255,.08));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
 }
 /* dynamic specular highlight following pointer */
 .glass::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
-  background: radial-gradient(240px circle at var(--mx, 30%) var(--my, -20%), rgba(255,255,255,.13), transparent 60%);
+  background:
+    radial-gradient(200px circle at var(--mx, 25%) var(--my, -30%), rgba(255,255,255,.16), transparent 60%),
+    radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.07), transparent 60%);
   opacity: var(--glow, .7);
   transition: opacity .4s ease;
 }
 :root[data-theme="light"] .glass::after { background: radial-gradient(240px circle at var(--mx, 30%) var(--my, -20%), rgba(255,255,255,.7), transparent 60%); }
+.panel, .card { --frost: 7; }
+.sheet { --frost: 14; }
 
 /* ---------- topbar ---------- */
 .topbar {
@@ -461,3 +470,15 @@ input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border: 0; bo
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   .reveal { opacity: 1; transform: none; }
 }
+
+/* iOS-style scroll edge effect: content softly fades under the floating bar */
+.topbar::before {
+  content: ""; position: absolute; inset: 0 0 -28px; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, transparent) 55%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent);
+  mask-image: linear-gradient(to bottom, #000 50%, transparent);
+  opacity: 0; transition: opacity .4s ease;
+}
+.topbar.scrolled::before { opacity: 1; }
+.tabbar { --frost: 7; }

@@ -64,6 +64,91 @@
   }
   reduce ? drawSilk(0) : requestAnimationFrame(loop);
 
+  /* ---------- real liquid-glass refraction (Chromium) ----------
+     For every .glass element we build a displacement map shaped like
+     its rounded rectangle: neutral in the middle, bending light inward
+     along a convex bezel at the edge — like looking through thick glass.
+     The three colour channels are displaced by slightly different amounts
+     for a subtle chromatic dispersion. Other browsers keep the CSS blur. */
+  // Chromium (Chrome, Edge, Opera, Samsung, Android) — not iOS browsers, which are all WebKit
+  const isChromium = /Chrome\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|Firefox/.test(navigator.userAgent);
+  if (isChromium) {
+    root.classList.add('lg');
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('width', 0); svg.setAttribute('height', 0);
+    svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
+    document.body.prepend(svg);
+    const cache = new Map(); let uid = 0;
+
+    function makeMap(w, h, r, bezel) {
+      const S = 1;                                     // map resolution (css px)
+      const cw = Math.max(2, Math.round(w * S)), ch = Math.max(2, Math.round(h * S));
+      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+      const g = c.getContext('2d'), img = g.createImageData(cw, ch), d = img.data;
+      const hx = w / 2, hy = h / 2, ix = hx - r, iy = hy - r;
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+        const px = (x + .5) / S - hx, py = (y + .5) / S - hy;
+        const qx = Math.abs(px) - ix, qy = Math.abs(py) - iy;
+        let dist, nx, ny;                               // dist: depth inside edge; n: outward normal
+        if (qx > 0 && qy > 0) {
+          const l = Math.hypot(qx, qy) || 1; dist = r - l; nx = qx / l; ny = qy / l;
+        } else if (qx > qy) { dist = r - qx; nx = 1; ny = 0; }
+        else { dist = r - qy; nx = 0; ny = 1; }
+        nx *= Math.sign(px) || 1; ny *= Math.sign(py) || 1;
+        let m = 0;
+        if (dist < bezel) { const t = Math.max(0, dist) / bezel; m = Math.pow(1 - t, 2.4); }   // convex bezel
+        const i = (y * cw + x) * 4;
+        d[i] = 128 - nx * m * 127; d[i + 1] = 128 - ny * m * 127; d[i + 2] = 128; d[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      return c.toDataURL();
+    }
+
+    function filterFor(el) {
+      const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+      if (!w || !h) return null;
+      const cs = getComputedStyle(el);
+      const r = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, w / 2, h / 2);
+      const frost = parseFloat(cs.getPropertyValue('--frost')) || 3;
+      const small = Math.min(w, h) < 70;
+      const bezel = Math.min(small ? Math.min(w, h) * .42 : 30, r + 6, Math.min(w, h) / 2);
+      const scale = small ? 26 : 46;
+      const key = [w, h, r, frost].join('x');
+      if (cache.has(key)) return cache.get(key);
+      const id = 'lgf' + (uid++);
+      const f = document.createElementNS(NS, 'filter');
+      f.id = id;
+      for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB' })) f.setAttribute(k, v);
+      f.innerHTML = `
+        <feImage href="${makeMap(w, h, r, bezel)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="map"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="${frost}" edgeMode="duplicate" result="b"/>
+        <feDisplacementMap in="b" in2="map" scale="${scale}" xChannelSelector="R" yChannelSelector="G" result="dR"/>
+        <feDisplacementMap in="b" in2="map" scale="${scale * .93}" xChannelSelector="R" yChannelSelector="G" result="dG"/>
+        <feDisplacementMap in="b" in2="map" scale="${scale * .86}" xChannelSelector="R" yChannelSelector="G" result="dB"/>
+        <feColorMatrix in="dR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cR"/>
+        <feColorMatrix in="dG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cG"/>
+        <feColorMatrix in="dB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cB"/>
+        <feComposite in="cR" in2="cG" operator="arithmetic" k2="1" k3="1" result="rg"/>
+        <feComposite in="rg" in2="cB" operator="arithmetic" k2="1" k3="1"/>`;
+      svg.appendChild(f);
+      cache.set(key, id);
+      return id;
+    }
+
+    function applyGlass() {
+      for (const el of $$('.glass')) {
+        if (el.closest('[hidden]')) continue;
+        const id = filterFor(el); if (!id) continue;
+        const v = `url(#${id}) saturate(1.7) brightness(1.08)`;
+        el.style.backdropFilter = v; el.style.webkitBackdropFilter = v;
+      }
+    }
+    window.__applyGlass = applyGlass;
+    (document.fonts?.ready || Promise.resolve()).then(applyGlass);
+    let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(applyGlass, 200); });
+  }
+
   /* ---------- dynamic specular highlight on glass ---------- */
   addEventListener('pointermove', e => {
     for (const el of $$('.glass')) {
@@ -98,7 +183,15 @@
   document.fonts?.ready.then(movePill); movePill();
 
   const sections = ['beranda', 'proyek', 'tentang', 'kontak'].map(id => document.getElementById(id));
+  // highlight moves instantly on tap; scroll-spy pauses until the smooth scroll ends
+  let lockUntil = 0;
+  [...navLinks, ...tabLinks].forEach(a => a.addEventListener('click', () => {
+    lockUntil = performance.now() + 1200;
+    setActive(a.hash.slice(1));
+  }));
+  addEventListener('scrollend', () => { lockUntil = 0; spy(); });
   function spy() {
+    if (performance.now() < lockUntil) return;
     $('.topbar').classList.toggle('scrolled', scrollY > 20);
     const mid = innerHeight * .45;
     let cur = 'beranda';
@@ -158,6 +251,7 @@
   function openSheet() {
     lastFocus = document.activeElement;
     sheet.hidden = back.hidden = false;
+    window.__applyGlass?.();
     requestAnimationFrame(() => { sheet.classList.add('open'); back.classList.add('open'); });
     setTimeout(() => $('input', sheet).focus(), 350);
   }
