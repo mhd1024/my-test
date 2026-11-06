@@ -112,9 +112,11 @@
       const r = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, w / 2, h / 2);
       const frost = parseFloat(cs.getPropertyValue('--frost')) || 3;
       const small = Math.min(w, h) < 70;
-      const bezel = Math.min(small ? Math.min(w, h) * .42 : 30, r + 6, Math.min(w, h) / 2);
-      const scale = small ? 26 : 46;
-      const key = [w, h, r, frost].join('x');
+      // per-element overrides (the press lens uses a much stronger, more dispersive edge)
+      const bezel = +el.dataset.lgBezel || Math.min(small ? Math.min(w, h) * .42 : 30, r + 6, Math.min(w, h) / 2);
+      const scale = +el.dataset.lgScale || (small ? 26 : 46);
+      const disp = +el.dataset.lgDisp || .07;                 // spread between colour channels
+      const key = [w, h, r, frost, bezel, scale, disp].join('x');
       if (cache.has(key)) return cache.get(key);
       const id = 'lgf' + (uid++);
       const f = document.createElementNS(NS, 'filter');
@@ -124,8 +126,8 @@
         <feImage href="${makeMap(w, h, r, bezel)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="map"/>
         <feGaussianBlur in="SourceGraphic" stdDeviation="${frost}" edgeMode="duplicate" result="b"/>
         <feDisplacementMap in="b" in2="map" scale="${scale}" xChannelSelector="R" yChannelSelector="G" result="dR"/>
-        <feDisplacementMap in="b" in2="map" scale="${scale * .93}" xChannelSelector="R" yChannelSelector="G" result="dG"/>
-        <feDisplacementMap in="b" in2="map" scale="${scale * .86}" xChannelSelector="R" yChannelSelector="G" result="dB"/>
+        <feDisplacementMap in="b" in2="map" scale="${scale * (1 - disp)}" xChannelSelector="R" yChannelSelector="G" result="dG"/>
+        <feDisplacementMap in="b" in2="map" scale="${scale * (1 - 2 * disp)}" xChannelSelector="R" yChannelSelector="G" result="dB"/>
         <feColorMatrix in="dR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cR"/>
         <feColorMatrix in="dG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cG"/>
         <feColorMatrix in="dB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cB"/>
@@ -140,7 +142,7 @@
       for (const el of $$('.glass')) {
         if (el.closest('[hidden]') || el.classList.contains('chip')) continue;
         const id = filterFor(el); if (!id) continue;
-        const v = `url(#${id}) saturate(1.7) brightness(1.08)`;
+        const v = `url(#${id}) ${el.dataset.lgPost || "saturate(1.7) brightness(1.08)"}`;
         el.style.backdropFilter = v; el.style.webkitBackdropFilter = v;
       }
     }
@@ -162,44 +164,41 @@
   /* ---------- liquid selector (iOS 26 style) ----------
      Shared by every horizontal choice group (tab bar, top nav, segmented filter).
 
-     Physics: the indicator is a damped spring with mass. While dragging it
+     Physics: the selection is a damped spring with mass. While dragging it
      trails the finger, stretches along the motion and thins across it, and
      is rubber-banded past the ends. On release it springs onto the nearest
      item with a slight overshoot and wobble.
 
-     Lens: while pressed it turns into a concave (minus) lens. A copy of the
-     row inside the lens is drawn smaller, as if further away, with red/blue
-     colour fringes that grow towards the lens edges. The items underneath
-     fade so only the lens image is seen. Pure DOM/CSS, so it also works in
-     Safari on iPhone. */
+     Lens: on press the in-bar highlight morphs into a clear glass lens that
+     floats ABOVE the bar and is bigger than it (it pops out top and bottom).
+     It lives outside the bar so it can bend whatever is behind it — page
+     content included. Its rim refracts strongly with prismatic colour
+     fringes (real SVG displacement in Chromium; iridescent rim drawn in CSS
+     everywhere, including Safari on iPhone). Items under it stay crisp. */
   function liquidSelect(root, indicator, items, isActive) {
     indicator.classList.add('liq-ind');
     root.classList.add('liq');
     items().forEach(it => { it.draggable = false; });
 
-    // ---- spring state
+    // ---- spring state (x / w in the root's own px; p = press amount 0..1)
     const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, tx: 0, tw: 0, tp: 0 };
-    let k = 420, c = 26;                    // stiffness / damping for x & w (changes while dragging)
+    let k = 420, c = 26;
     let raf = 0, last = 0, placed = false;
 
-    // ---- lens image: a minified copy of the row, plus an edge layer with stronger fringes
-    const view = document.createElement('div');
-    view.className = 'lens-view'; view.setAttribute('aria-hidden', 'true');
-    indicator.append(view);
-    let clones = [];
-    function buildClones() {
-      view.innerHTML = '';
-      clones = ['lens-clone', 'lens-clone lens-fringe'].map(cls => {
-        const cl = root.cloneNode(true);
-        cl.querySelectorAll('.liq-ind, .lens-view').forEach(n => n.remove());
-        cl.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
-        cl.removeAttribute('id'); cl.removeAttribute('role'); cl.removeAttribute('aria-label');
-        cl.className = root.className.replace(/\b(glass|liq|pressing|dragging)\b/g, '') + ' ' + cls;
-        cl.style.cssText = `width:${root.offsetWidth}px;height:${root.offsetHeight}px`;
-        cl.inert = true;
-        view.append(cl);
-        return cl;
-      });
+    // ---- floating lens (sibling of the page, not of the bar)
+    const lens = document.createElement('div');
+    lens.className = 'glass lens';
+    lens.setAttribute('aria-hidden', 'true');
+    Object.assign(lens.dataset, { lgScale: '46', lgDisp: '.12', lgBezel: '14', lgPost: 'saturate(1.1) brightness(1.2)' });
+    document.body.append(lens);
+    let LW = 0, LH = 0;                                          // lens box at full press
+    const POP_W = 1.45, POP_H = 1.28;                            // how far it grows past the item / bar
+    function sizeLens() {
+      const r = root.getBoundingClientRect(), kx = r.width / root.offsetWidth;
+      const maxW = Math.max(...items().map(it => it.offsetWidth));
+      LW = Math.round(maxW * kx * POP_W); LH = Math.round(r.height * POP_H);
+      lens.style.width = LW + 'px'; lens.style.height = LH + 'px';
+      window.__applyGlass?.();                                   // (re)build its refraction map for this size
     }
 
     const active = () => items().find(isActive) || items()[0];
@@ -207,28 +206,28 @@
 
     function render() {
       const st = Math.min(Math.abs(S.vx) / 2600, .26);           // stretch from speed
-      const s = 1 + .2 * S.p;                                    // press swell (spring → jelly pop)
-      const sx = s * (1 + st), sy = s * (1 - st * .55);
+      const sx = 1 + st, sy = 1 - st * .55;
+      const swell = 1 + .2 * S.p;
       indicator.style.left = '0px';
       indicator.style.width = S.w + 'px';
-      indicator.style.transform = `translateX(${S.x}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
-      // lens image: counter the swell, then minify like a minus lens
-      if (clones.length) {
-        // map the row point under the lens centre to the lens centre, minified by m
-        const h = indicator.offsetHeight, cx = S.x + S.w / 2, cy = indicator.offsetTop + h / 2;
-        const m = .8 / s;
-        const tf = `translate(${(S.w / 2).toFixed(2)}px, ${(h / 2).toFixed(2)}px) scale(${m.toFixed(4)}) translate(${(-cx).toFixed(2)}px, ${(-cy).toFixed(2)}px)`;
-        clones.forEach(cl => { cl.style.transformOrigin = '0 0'; cl.style.transform = tf; });
-        view.style.opacity = Math.min(1, S.p * 1.4).toFixed(3);
+      indicator.style.transform = `translateX(${S.x}px) scale(${(sx * swell).toFixed(4)}, ${(sy * swell).toFixed(4)})`;
+      const morph = Math.min(1, Math.max(0, S.p) * 2.5);          // 0 = in-bar highlight, 1 = floating lens
+      indicator.style.opacity = (1 - morph).toFixed(3);
+      if (LW) {
+        const r = root.getBoundingClientRect(), kx = r.width / root.offsetWidth;
+        const cx = r.left + (S.x + S.w / 2) * kx;
+        const cy = r.top + (indicator.offsetTop + indicator.offsetHeight / 2) * kx;
+        // size grows from the highlight's size to the full pop-out lens
+        const p = Math.max(0, S.p);
+        const wNow = S.w * kx * (1 + (POP_W - 1) * p) * sx;
+        const hNow = indicator.offsetHeight * kx * (1 + (r.height / (indicator.offsetHeight * kx) * POP_H - 1) * p) * sy;
+        lens.style.transform = `translate(${(cx - LW / 2).toFixed(2)}px, ${(cy - LH / 2).toFixed(2)}px) scale(${(wNow / LW).toFixed(4)}, ${(hNow / LH).toFixed(4)})`;
+        lens.style.opacity = morph.toFixed(3);
       }
-      // items under the lens fade out, so only the lens image shows; nearest one is "hot"
       const lc = S.x + S.w / 2;
-      items().forEach((it, i) => {
+      items().forEach(it => {
         const ov = Math.max(0, 1 - Math.abs(it.offsetLeft + it.offsetWidth / 2 - lc) / it.offsetWidth);
-        it.style.opacity = S.p > .01 ? (1 - Math.min(1, ov * 1.4) * Math.min(1, S.p)).toFixed(3) : '';
-        const hot = S.p > .3 && ov > .5;
-        it.classList.toggle('hot', hot);
-        clones.forEach(cl => cl.querySelectorAll(it.tagName)[i]?.classList.toggle('hot', hot));
+        it.classList.toggle('hot', S.p > .3 && ov > .5);
       });
     }
 
@@ -236,19 +235,19 @@
       const dt = Math.min(.032, (t - (last || t)) / 1000 || .016); last = t;
       const ax = -k * (S.x - S.tx) - c * S.vx;               S.vx += ax * dt; S.x += S.vx * dt;
       const aw = -k * (S.w - S.tw) - c * S.vw;               S.vw += aw * dt; S.w += S.vw * dt;
-      const ap = -520 * (S.p - S.tp) - 20 * S.vp;            S.vp += ap * dt; S.p += S.vp * dt;
+      const ap = -520 * (S.p - S.tp) - 22 * S.vp;            S.vp += ap * dt; S.p += S.vp * dt;
       render();
       const settled = Math.abs(S.x - S.tx) < .05 && Math.abs(S.vx) < .5 && Math.abs(S.w - S.tw) < .05 && Math.abs(S.vw) < .5 && Math.abs(S.p - S.tp) < .004 && Math.abs(S.vp) < .05;
       if (settled) {
         S.x = S.tx; S.w = S.tw; S.p = S.tp; S.vx = S.vw = S.vp = 0; render(); raf = 0; last = 0;
-        if (!S.tp && clones.length) { view.innerHTML = ''; clones = []; items().forEach(it => it.style.opacity = ''); }
+        if (!S.tp) lens.classList.remove('on');
       } else raf = requestAnimationFrame(step);
     }
-    const kick = () => { if (reduce) { S.x = S.tx; S.w = S.tw; S.p = S.tp; render(); return; } if (!raf) raf = requestAnimationFrame(step); };
+    const kick = () => { if (reduce) { S.x = S.tx; S.w = S.tw; S.p = S.tp; render(); if (!S.tp) lens.classList.remove('on'); return; } if (!raf) raf = requestAnimationFrame(step); };
 
     function sync(now) {
       const a = active(); if (!a || !a.offsetWidth || down) return;
-      if (!now && placed && a.offsetLeft === S.tx && a.offsetWidth === S.tw) return;   // nothing to do (scroll-spy calls often)
+      if (!now && placed && a.offsetLeft === S.tx && a.offsetWidth === S.tw) return;   // scroll-spy calls often
       S.tx = a.offsetLeft; S.tw = a.offsetWidth;
       if (now || !placed) { S.x = S.tx; S.w = S.tw; S.vx = S.vw = 0; placed = true; render(); }
       else { k = 420; c = 24; kick(); }                         // springy settle with a little overshoot
@@ -279,7 +278,8 @@
       if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
       down = { id: e.pointerId, x: e.clientX, y: e.clientY };
       dragging = false; hover = null;
-      buildClones();
+      sizeLens();
+      lens.classList.add('on');
       root.classList.add('pressing');
       k = 700; c = 38;                                           // heavy but responsive while held
       S.tp = 1;
@@ -312,6 +312,7 @@
     // only the root's own capture matters (an icon losing its implicit touch capture also bubbles here)
     root.addEventListener('lostpointercapture', e => e.target === root && down && dragging && release(false));
     root.addEventListener('click', e => { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
+    addEventListener('scroll', () => { if (S.p > 0) render(); }, { passive: true });   // lens is fixed: keep it on the bar
 
     addEventListener('resize', () => sync(true));
     document.fonts?.ready.then(() => sync(true));
