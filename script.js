@@ -183,35 +183,53 @@
   document.fonts?.ready.then(movePill); movePill();
 
   const sections = ['beranda', 'proyek', 'tentang', 'kontak'].map(id => document.getElementById(id));
-  // highlight moves instantly on tap; scroll-spy pauses until the smooth scroll ends
+  /* Tapping a menu item: the highlight moves at once, the page scrolls smoothly,
+     and nothing else reacts until that scroll is over — so the bar never
+     shrinks or flickers half-way through (or snaps at the end). */
   let lockUntil = 0;
+  const locked = () => performance.now() < lockUntil;
   [...navLinks, ...tabLinks].forEach(a => a.addEventListener('click', () => {
-    lockUntil = performance.now() + 1200;
+    lockUntil = performance.now() + 1400;
+    setMini(false);
     setActive(a.hash.slice(1));
   }));
-  addEventListener('scrollend', () => { lockUntil = 0; spy(); });
+  // a real finger or wheel takes control back immediately
+  ['wheel', 'touchstart'].forEach(t => addEventListener(t, () => { lockUntil = 0; }, { passive: true }));
+  addEventListener('scrollend', () => { if (lockUntil) { lockUntil = 0; resetDir(); spy(); } });
+
   function spy() {
-    if (performance.now() < lockUntil) return;
-    $('.topbar').classList.toggle('scrolled', scrollY > 20);
-    tabMini();
     const mid = innerHeight * .45;
     let cur = 'beranda';
-    // order on page: beranda, tentang, proyek, kontak
     for (const s of [...sections].sort((a, b) => a.offsetTop - b.offsetTop)) {
       if (s.getBoundingClientRect().top < mid) cur = s.id;
     }
     if (innerHeight + scrollY >= document.body.scrollHeight - 4) cur = 'kontak';
     setActive(cur);
   }
-  /* ---------- tab bar minimises while scrolling down, expands on scroll up ---------- */
-  let lastY = scrollY;
+
+  /* ---------- tab bar minimises while scrolling down, expands on scroll up ----------
+     With hysteresis: it needs a deliberate 48 px downward scroll to shrink and
+     24 px upward to grow, so small jitters never toggle it. */
+  const tb = $('.tabbar'), topbar = $('.topbar');
+  let lastY = scrollY, dir = 0, dirStart = scrollY;
+  const setMini = on => tb.classList.toggle('mini', on);
+  const resetDir = () => { lastY = dirStart = scrollY; dir = 0; };
   function tabMini() {
-    const y = scrollY, tb = $('.tabbar');
-    if (Math.abs(y - lastY) < 8) return;
-    tb.classList.toggle('mini', y > lastY && y > 200);
-    lastY = y;
+    const y = scrollY, dy = y - lastY; lastY = y;
+    if (!dy) return;
+    const d = dy > 0 ? 1 : -1;
+    if (d !== dir) { dir = d; dirStart = y - dy; }
+    if (y < 120) setMini(false);
+    else if (dir > 0 && y - dirStart > 48) setMini(true);
+    else if (dir < 0 && dirStart - y > 24) setMini(false);
   }
-  addEventListener('scroll', spy, { passive: true }); spy();
+  function onScroll() {
+    topbar.classList.toggle('scrolled', scrollY > 20);
+    if (locked()) { lastY = dirStart = scrollY; return; }   // keep reference fresh, no reaction
+    if (lockUntil) { lockUntil = 0; resetDir(); }           // lock expired without scrollend (older Safari)
+    tabMini(); spy();
+  }
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
   /* ---------- reveal ---------- */
   const io = new IntersectionObserver(es => es.forEach(e => {
