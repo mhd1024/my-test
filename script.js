@@ -181,7 +181,7 @@
     items().forEach(it => { it.draggable = false; });
 
     // ---- spring state (x / w in the root's own px; p = press amount 0..1)
-    const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, tx: 0, tw: 0, tp: 0 };
+    const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, tx: 0, tw: 0, tp: 0, d: 0, vd: 0 };
     let k = 420, c = 26;
     let raf = 0, last = 0, placed = false;
 
@@ -189,7 +189,7 @@
     const lens = document.createElement('div');
     lens.className = 'glass lens';
     lens.setAttribute('aria-hidden', 'true');
-    Object.assign(lens.dataset, { lgScale: '46', lgDisp: '.12', lgBezel: '14', lgPost: 'saturate(1.1) brightness(1.2)' });
+    Object.assign(lens.dataset, { lgScale: '46', lgDisp: '.05', lgBezel: '14', lgPost: 'brightness(1.12)' });
     document.body.append(lens);
     let LW = 0, LH = 0;                                          // lens box at full press
     const POP_W = 1.45, POP_H = 1.28;                            // how far it grows past the item / bar
@@ -204,13 +204,23 @@
     const active = () => items().find(isActive) || items()[0];
     const bounds = () => { const its = items(); return [its[0].offsetLeft, its.at(-1).offsetLeft + its.at(-1).offsetWidth]; };
 
+    /* Droplet shape: moving right, the leading (right) end grows long and
+       pointed while the trailing end goes blunt, and the body thins; the
+       loose shape spring then makes it wobble like jelly when it stops. */
+    const dropRadius = (h, d) => {
+      const r = h / 2, a = Math.min(.7, Math.abs(d) * .75);
+      const lead = r * (1 + a * 1.1), trail = r * (1 - a * .55);
+      const [L, R] = d >= 0 ? [trail, lead] : [lead, trail];
+      return `${L.toFixed(1)}px ${R.toFixed(1)}px ${R.toFixed(1)}px ${L.toFixed(1)}px / ${r.toFixed(1)}px`;
+    };
     function render() {
-      const st = Math.min(Math.abs(S.vx) / 2600, .26);           // stretch from speed
-      const sx = 1 + st, sy = 1 - st * .55;
+      const st = Math.min(Math.abs(S.d), 1) * .24;                // stretch from the shape spring
+      const sx = 1 + st, sy = 1 - st * .6;
       const swell = 1 + .2 * S.p;
       indicator.style.left = '0px';
       indicator.style.width = S.w + 'px';
       indicator.style.transform = `translateX(${S.x}px) scale(${(sx * swell).toFixed(4)}, ${(sy * swell).toFixed(4)})`;
+      indicator.style.borderRadius = dropRadius(indicator.offsetHeight, S.d);
       const morph = Math.min(1, Math.max(0, S.p) * 2.5);          // 0 = in-bar highlight, 1 = floating lens
       indicator.style.opacity = (1 - morph).toFixed(3);
       if (LW) {
@@ -223,6 +233,7 @@
         const hNow = indicator.offsetHeight * kx * (1 + (r.height / (indicator.offsetHeight * kx) * POP_H - 1) * p) * sy;
         lens.style.transform = `translate(${(cx - LW / 2).toFixed(2)}px, ${(cy - LH / 2).toFixed(2)}px) scale(${(wNow / LW).toFixed(4)}, ${(hNow / LH).toFixed(4)})`;
         lens.style.opacity = morph.toFixed(3);
+        lens.style.borderRadius = dropRadius(LH, S.d);
       }
       const lc = S.x + S.w / 2;
       items().forEach(it => {
@@ -236,10 +247,12 @@
       const ax = -k * (S.x - S.tx) - c * S.vx;               S.vx += ax * dt; S.x += S.vx * dt;
       const aw = -k * (S.w - S.tw) - c * S.vw;               S.vw += aw * dt; S.w += S.vw * dt;
       const ap = -520 * (S.p - S.tp) - 22 * S.vp;            S.vp += ap * dt; S.p += S.vp * dt;
+      const td = Math.max(-1, Math.min(1, S.vx / 650));
+      const ad = -260 * (S.d - td) - 11 * S.vd;             S.vd += ad * dt; S.d += S.vd * dt;
       render();
-      const settled = Math.abs(S.x - S.tx) < .05 && Math.abs(S.vx) < .5 && Math.abs(S.w - S.tw) < .05 && Math.abs(S.vw) < .5 && Math.abs(S.p - S.tp) < .004 && Math.abs(S.vp) < .05;
+      const settled = Math.abs(S.x - S.tx) < .05 && Math.abs(S.vx) < .5 && Math.abs(S.w - S.tw) < .05 && Math.abs(S.vw) < .5 && Math.abs(S.p - S.tp) < .004 && Math.abs(S.vp) < .05 && Math.abs(S.d) < .004 && Math.abs(S.vd) < .05;
       if (settled) {
-        S.x = S.tx; S.w = S.tw; S.p = S.tp; S.vx = S.vw = S.vp = 0; render(); raf = 0; last = 0;
+        S.x = S.tx; S.w = S.tw; S.p = S.tp; S.d = 0; S.vx = S.vw = S.vp = S.vd = 0; render(); raf = 0; last = 0;
         if (!S.tp) lens.classList.remove('on');
       } else raf = requestAnimationFrame(step);
     }
