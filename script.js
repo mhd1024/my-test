@@ -138,7 +138,7 @@
 
     function applyGlass() {
       for (const el of $$('.glass')) {
-        if (el.closest('[hidden]')) continue;
+        if (el.closest('[hidden]') || el.classList.contains('chip')) continue;
         const id = filterFor(el); if (!id) continue;
         const v = `url(#${id}) saturate(1.7) brightness(1.08)`;
         el.style.backdropFilter = v; el.style.webkitBackdropFilter = v;
@@ -193,6 +193,7 @@
   function spy() {
     if (performance.now() < lockUntil) return;
     $('.topbar').classList.toggle('scrolled', scrollY > 20);
+    tabMini();
     const mid = innerHeight * .45;
     let cur = 'beranda';
     // order on page: beranda, tentang, proyek, kontak
@@ -201,6 +202,14 @@
     }
     if (innerHeight + scrollY >= document.body.scrollHeight - 4) cur = 'kontak';
     setActive(cur);
+  }
+  /* ---------- tab bar minimises while scrolling down, expands on scroll up ---------- */
+  let lastY = scrollY;
+  function tabMini() {
+    const y = scrollY, tb = $('.tabbar');
+    if (Math.abs(y - lastY) < 8) return;
+    tb.classList.toggle('mini', y > lastY && y > 200);
+    lastY = y;
   }
   addEventListener('scroll', spy, { passive: true }); spy();
 
@@ -223,6 +232,14 @@
     const f = b.dataset.filter;
     $$('.card').forEach(c => c.classList.toggle('dim', f !== 'all' && !c.dataset.tags.includes(f)));
   }));
+  const syncTabIndex = () => $$('button', seg).forEach(b => b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1);
+  seg.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const bs = $$('button', seg), i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true');
+    const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
+    n.click(); n.focus(); e.preventDefault();
+  });
+  seg.addEventListener('click', syncTabIndex); syncTabIndex();
   moveThumb(); addEventListener('resize', moveThumb); document.fonts?.ready.then(moveThumb);
 
   /* ---------- waveform art ---------- */
@@ -245,34 +262,127 @@
   }
   requestAnimationFrame(wave);
 
-  /* ---------- sheet ---------- */
-  const sheet = $('#sheet'), back = $('#sheetBackdrop');
-  let lastFocus;
-  function openSheet() {
-    lastFocus = document.activeElement;
-    sheet.hidden = back.hidden = false;
+  /* ---------- about: expand in place ---------- */
+  const moreBtn = $('[aria-controls="aboutMore"]'), more = $('#aboutMore');
+  moreBtn.addEventListener('click', () => {
+    const open = moreBtn.getAttribute('aria-expanded') !== 'true';
+    moreBtn.setAttribute('aria-expanded', open);
+    more.hidden = !open;
+    $('span', moreBtn).textContent = open ? 'Lebih sedikit' : 'Selengkapnya';
     window.__applyGlass?.();
-    requestAnimationFrame(() => { sheet.classList.add('open'); back.classList.add('open'); });
-    setTimeout(() => $('input', sheet).focus(), 350);
+  });
+
+  /* ---------- sheets (dialogs) with focus trap ---------- */
+  const back = $('#sheetBackdrop');
+  let current = null, lastFocus = null;
+  const focusables = el => $$('a[href],button:not([disabled]),input:not([type=hidden]),textarea,[tabindex]:not([tabindex="-1"])', el)
+    .filter(x => !x.closest('[hidden]'));
+  function openSheet(id, trigger) {
+    if (current) { current.classList.remove('open'); current.hidden = true; }
+    else lastFocus = trigger || document.activeElement;
+    current = document.getElementById(id);
+    current.hidden = back.hidden = false;
+    window.__applyGlass?.();
+    requestAnimationFrame(() => { current.classList.add('open'); back.classList.add('open'); });
+    setTimeout(() => (focusables(current).find(x => x.matches('input,textarea')) || focusables(current)[0])?.focus(), 350);
   }
   function closeSheet() {
-    sheet.classList.remove('open'); back.classList.remove('open');
-    setTimeout(() => { sheet.hidden = back.hidden = true; lastFocus?.focus(); }, 450);
+    if (!current) return;
+    const s = current; current = null;
+    s.classList.remove('open'); back.classList.remove('open');
+    setTimeout(() => { s.hidden = back.hidden = true; lastFocus?.focus(); }, 450);
   }
-  $$('[data-open-sheet]').forEach(b => b.addEventListener('click', openSheet));
+  $$('[data-open-sheet]').forEach(b => b.addEventListener('click', () => { prepContact(''); openSheet(b.dataset.openSheet, b); }));
   $$('[data-close-sheet]').forEach(b => b.addEventListener('click', closeSheet));
   back.addEventListener('click', closeSheet);
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+  addEventListener('keydown', e => {
+    if (!current) return;
+    if (e.key === 'Escape') { closeSheet(); return; }
+    if (e.key === 'Tab') {
+      const f = focusables(current), first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    }
+  });
+
+  /* ---------- project detail ----------
+     CONTOH: isi di bawah disusun dari deskripsi kartu. Ganti dengan data asli
+     (tahun, peran, masalah/solusi, stack, tautan kode/demo). */
+  const PROJECTS = {
+    voicecraft: {
+      title: 'VoiceCraft AI', meta: 'AI · Audio · Pascaproduksi film',
+      problem: 'Rekaman dialog di lokasi syuting sering tercampur bising, gema, atau terpotong, sehingga harus direkam ulang di studio.',
+      solution: 'Model AI yang memulihkan audio dialog langsung dari rekaman asli, sehingga editor bisa menyelamatkan take terbaik tanpa rekam ulang.',
+      stack: ['Python', 'PyTorch', 'Audio Processing', 'Gradio'], code: ''
+    },
+    simpulcloud: {
+      title: 'Simpul Creative Cloud', meta: 'AI · Suite kreatif offline',
+      problem: 'Alat kreatif berbasis AI umumnya bergantung pada internet dan langganan cloud, sehingga sulit dipakai di lokasi dengan jaringan terbatas.',
+      solution: 'Kumpulan alat kreatif yang menjalankan model AI secara lokal di perangkat dan tetap berfungsi tanpa koneksi internet.',
+      stack: ['Python', 'Machine Learning', 'React', 'UI/UX Design'], code: ''
+    },
+    simpuleyes: {
+      title: 'SimpulEyes 4', meta: 'Film · Sinkronisasi audio',
+      problem: 'Menyelaraskan audio dari perekam terpisah dengan banyak kamera secara manual memakan waktu berjam-jam.',
+      solution: 'Alat sinkronisasi modern yang mencocokkan gelombang audio antar sumber secara otomatis, terinspirasi dari PluralEyes.',
+      stack: ['Python', 'Audio Processing', 'Video Editing'], code: ''
+    }
+  };
+  let currentProject = null;
+  function openProject(key, trigger) {
+    const p = PROJECTS[key]; if (!p) return;
+    currentProject = p;
+    $('#pTitle').textContent = p.title;
+    $('#pMeta').textContent = p.meta;
+    $('#pProblem').textContent = p.problem;
+    $('#pSolution').textContent = p.solution;
+    const list = $('#pStack'); list.innerHTML = '';
+    p.stack.forEach(s => { const li = document.createElement('li'); li.className = 'chip glass'; li.textContent = s; list.append(li); });
+    const code = $('#pCode');
+    code.disabled = !p.code; code.title = p.code ? '' : 'Tautan belum tersedia';
+    code.onclick = () => p.code && window.open(p.code, '_blank', 'noopener');
+    openSheet('projectSheet', trigger);
+  }
+  $$('.card').forEach(card => {
+    const btn = $('[data-project]', card);
+    card.addEventListener('click', () => { if (!card.classList.contains('dim')) openProject(btn.dataset.project, btn); });
+  });
+  $('#pDiscuss').addEventListener('click', () => { prepContact(currentProject?.title || ''); openSheet('sheet'); });
+
+  /* ---------- contact form: validation, error + loading states ---------- */
+  const form = $('#contactForm');
+  function prepContact(project) {
+    form.subject.value = project;
+    const ctx = $('#formContext');
+    ctx.hidden = !project;
+    ctx.textContent = project ? `Tentang proyek serupa: ${project}` : '';
+    $$('.field', form).forEach(f => f.classList.remove('invalid'));
+    $$('.field-error', form).forEach(p => p.hidden = true);
+    $$('input,textarea', form).forEach(x => x.removeAttribute('aria-invalid'));
+  }
+  function validate(el) {
+    const bad = !el.value.trim();
+    el.closest('.field').classList.toggle('invalid', bad);
+    if (bad) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+    $('#err-' + el.name).hidden = !bad;
+    return !bad;
+  }
+  const fields = [form.elements.name, form.elements.msg];
+  fields.forEach(el => el.addEventListener('input', () => el.closest('.field').classList.contains('invalid') && validate(el)));
 
   const dur = $('#dur'), out = $('#durOut');
   const upd = () => { out.textContent = dur.value + ' minggu'; dur.style.setProperty('--p', ((dur.value - 1) / 11 * 100) + '%'); };
   dur.addEventListener('input', upd); upd();
 
-  $('#contactForm').addEventListener('submit', e => {
+  form.addEventListener('submit', e => {
     e.preventDefault();
-    const d = new FormData(e.target);
+    const ok = fields.map(validate);
+    if (ok.includes(false)) { fields[ok.indexOf(false)].focus(); return; }
+    const d = new FormData(form), btn = $('[type=submit]', form), label = $('.btn-label', btn);
+    btn.setAttribute('aria-busy', 'true'); label.textContent = 'Membuka email…';
+    const subject = d.get('subject') ? `Diskusi proyek serupa ${d.get('subject')}` : `Halo dari ${d.get('name')}`;
     const body = `${d.get('msg')}\n\nKolaborasi: ${d.get('collab') ? 'Ya' : 'Tidak'}\nPerkiraan durasi: ${d.get('dur')} minggu\n\n— ${d.get('name')}`;
-    location.href = `mailto:mochamad.ramdhan@example.com?subject=${encodeURIComponent('Halo dari ' + d.get('name'))}&body=${encodeURIComponent(body)}`;
-    closeSheet();
+    location.href = `mailto:mochamad.ramdhan@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setTimeout(() => { btn.removeAttribute('aria-busy'); label.textContent = 'Kirim via Email'; closeSheet(); }, 1200);
   });
 })();

@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<a class="skip" href="#konten">Lewati ke konten</a>
 
 <canvas id="silk" aria-hidden="true"></canvas>
 <div class="ambient" aria-hidden="true"></div>
@@ -35,13 +36,13 @@
   </button>
 </header>
 
-<main>
+<main id="konten" tabindex="-1">
   <!-- ===== Hero ===== -->
   <section class="hero" id="beranda">
     <div class="hero-text reveal">
       <p class="hello">Halo, saya</p>
       <h1><span class="first">Mochamad</span><span class="last">Ramdhan</span></h1>
-      <p class="roles">Developer <i></i> <b>Filmmaker</b> <i></i> Creative Technologist</p>
+      <p class="roles">Developer <i class="dot"></i> <b>Filmmaker</b> <i class="dot"></i> Creative Technologist</p>
       <span class="rule"></span>
       <p class="tagline">Membangun solusi kreatif melalui teknologi, <br>untuk cerita yang lebih hidup.</p>
       <a href="#proyek" class="btn glass">Lihat Proyek <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
@@ -54,36 +55,67 @@
   </section>
 
   <!-- ===== About ===== -->
-  <section class="about glass panel reveal" id="tentang">
-    <div class="about-orb" aria-hidden="true">
-      <svg viewBox="0 0 200 220">
-        <defs>
-          <linearGradient id="og1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c7d0ff" stop-opacity=".9"/><stop offset=".5" stop-color="#7d6cff" stop-opacity=".35"/><stop offset="1" stop-color="#4a7bff" stop-opacity=".9"/></linearGradient>
-          <linearGradient id="og2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb4ff" stop-opacity=".05"/><stop offset="1" stop-color="#8f7dff" stop-opacity=".5"/></linearGradient>
-        </defs>
-        <path d="M40 30c60-30 140 10 120 80s-90 90-120 60S-10 60 40 30z" fill="url(#og2)" stroke="url(#og1)" stroke-width="1.5"/>
-        <path d="M60 50c40-20 100 10 85 60s-70 60-90 40-30-80 5-100z" fill="none" stroke="url(#og1)" stroke-width="1" opacity=".7"/>
-        <path d="M30 120c20 40 80 70 130 30" fill="none" stroke="#e6ebff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
-      </svg>
+  <section class="about glass panel reveal" id="tentang" aria-labelledby="tentang-title">
+    <div class="about-grid">
+      <div class="about-body">
+        <h2 class="eyebrow" id="tentang-title">Tentang Saya</h2>
+        <p class="statement">Pengembang, Kreator,<br>dan Pembelajar Seumur Hidup.</p>
+        <p class="muted">Saya adalah seorang developer dan filmmaker yang tertarik pada persimpangan antara teknologi, audio, dan storytelling. Saat ini saya fokus pada pengembangan AI, multimedia, dan solusi kreatif untuk industri kreatif.</p>
+        <div class="more" id="aboutMore" hidden>
+          <p class="muted">Proyek-proyek saya lahir dari kebutuhan nyata di lapangan produksi: memulihkan audio rekaman yang rusak, menyinkronkan suara dari banyak kamera, dan menyediakan alat kreatif yang tetap berjalan tanpa internet. Bagi saya, teknologi yang baik adalah yang tidak terlihat. Ia bekerja di belakang layar agar cerita sampai ke penonton.</p>
+        </div>
+        <button class="link" type="button" aria-expanded="false" aria-controls="aboutMore"><span>Selengkapnya</span> <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <ul class="facts">
+        <li><span class="fi glass"><svg viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/></svg></span><div><small>Pendidikan</small>Universitas Pendidikan Indonesia</div></li>
+        <li><span class="fi glass"><svg viewBox="0 0 24 24"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div><small>Lokasi</small>Bandung, Indonesia</div></li>
+        <li><span class="fi glass"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/></svg></span><div><small>Email</small><a href="mailto:mochamad.ramdhan@example.com">mochamad.ramdhan@example.com</a></div></li>
+        <li><span class="fi glass"><svg viewBox="0 0 24 24" class="fill"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span><div><small>GitHub</small><a href="https://github.com/mochamadr" target="_blank" rel="noopener">github.com/mochamadr</a></div></li>
+      </ul>
     </div>
-    <div class="about-body">
-      <p class="eyebrow">Tentang Saya</p>
-      <h2>Pengembang, Kreator,<br>dan Pembelajar Seumur Hidup.</h2>
-      <p class="muted">Saya adalah seorang developer dan filmmaker yang tertarik pada persimpangan antara teknologi, audio, dan storytelling. Saat ini saya fokus pada pengembangan AI, multimedia, dan solusi kreatif untuk industri kreatif.</p>
-      <button class="link" data-open-sheet>Selengkapnya <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    <div class="skills" id="keahlian">
+      <h3 class="skills-title">Keahlian <span class="line"></span></h3>
+      <div class="skill-groups">
+        <div class="sg">
+          <h4>AI &amp; Machine Learning</h4>
+          <ul class="chips">
+            <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#4b8bd4" d="M11.9 2C7 2 7.3 4.1 7.3 4.1v2.2h4.7V7H5.4S2 6.6 2 11.9s2.9 5.1 2.9 5.1h1.8v-2.5s-.1-2.9 2.9-2.9h4.8s2.8 0 2.8-2.7V4.6S17.6 2 11.9 2zM9.3 3.5a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8z"/><path fill="#ffd43b" d="M12.1 22c4.9 0 4.6-2.1 4.6-2.1v-2.2H12V17h6.6s3.4.4 3.4-4.9-2.9-5.1-2.9-5.1h-1.8v2.5s.1 2.9-2.9 2.9H9.6s-2.8 0-2.8 2.7v4.3S6.4 22 12.1 22zm2.6-1.5a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8z"/></svg>Python</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="none" stroke="#ee4c2c" stroke-width="2.2" stroke-linecap="round" d="M12.5 3.5 8 8a6.4 6.4 0 1 0 9 0"/><circle cx="15.6" cy="6.3" r="1.3" fill="#ee4c2c"/></svg>PyTorch</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#ff8f00" d="M12 2 3 7v4l6-3.3V22l3 1.6V5.5l3 1.7V10l-1.5.9v3.4L15 13.5V22l3-1.7v-12L21 10V7z"/></svg>TensorFlow</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7c00" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 7.5 12 12l8-4.5z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5 12 21l8-4.5"/></svg>Gradio</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#6ea8ff" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M5 9.5c3.5 3 10.5 3 14 0" stroke-linecap="round"/><circle cx="12" cy="13.5" r="2.2" fill="#6ea8ff" stroke="none"/></svg>Machine Learning</li>
+          </ul>
+        </div>
+        <div class="sg">
+          <h4>Pengembangan</h4>
+          <ul class="chips">
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="1.3"><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/><circle cx="12" cy="12" r="1.8" fill="#61dafb" stroke="none"/></svg>React</li>
+          </ul>
+        </div>
+        <div class="sg">
+          <h4>Film &amp; Audio</h4>
+          <ul class="chips">
+            <li class="chip glass"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4" fill="#00005b"/><text x="12" y="16.3" text-anchor="middle" font-family="Inter,Arial" font-weight="700" font-size="11" fill="#9999ff">Pr</text></svg>Premiere Pro</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1d1f2b"/><circle cx="12" cy="8.2" r="3.4" fill="#e5484d"/><circle cx="8.6" cy="14.2" r="3.4" fill="#2bb673" opacity=".95"/><circle cx="15.4" cy="14.2" r="3.4" fill="#3b82f6" opacity=".95"/></svg>DaVinci Resolve</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#b9c3ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>Audio Processing</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#c8cde6" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" stroke-opacity=".5"/></svg>Video Editing</li>
+          </ul>
+        </div>
+        <div class="sg">
+          <h4>Desain</h4>
+          <ul class="chips">
+            <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#f24e1e" d="M8.5 2H12v6.5H8.5a3.25 3.25 0 0 1 0-6.5z"/><path fill="#ff7262" d="M12 2h3.5a3.25 3.25 0 0 1 0 6.5H12z"/><path fill="#a259ff" d="M8.5 8.5H12V15H8.5a3.25 3.25 0 0 1 0-6.5z"/><circle cx="15.3" cy="11.75" r="3.25" fill="#1abcfe"/><path fill="#0acf83" d="M8.5 15H12v3.25A3.25 3.25 0 1 1 8.5 15z"/></svg>Figma</li>
+            <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#9aa6d8" stroke-width="1.7" stroke-linejoin="round"><path d="M4 5h8v14H6a2 2 0 0 1-2-2z"/><path d="M12 5h6a2 2 0 0 1 2 2v12h-8"/><path d="M8 9v6"/></svg>UI/UX Design</li>
+          </ul>
+        </div>
+      </div>
     </div>
-    <ul class="facts">
-      <li><span class="fi glass"><svg viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/></svg></span><div><small>Pendidikan</small>Universitas Pendidikan Indonesia</div></li>
-      <li><span class="fi glass"><svg viewBox="0 0 24 24"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div><small>Lokasi</small>Bandung, Indonesia</div></li>
-      <li><span class="fi glass"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/></svg></span><div><small>Email</small><a href="mailto:mochamad.ramdhan@example.com">mochamad.ramdhan@example.com</a></div></li>
-      <li><span class="fi glass"><svg viewBox="0 0 24 24" class="fill"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span><div><small>GitHub</small><a href="https://github.com/mochamadr" target="_blank" rel="noopener">github.com/mochamadr</a></div></li>
-    </ul>
   </section>
 
   <!-- ===== Projects ===== -->
-  <section class="block" id="proyek">
+  <section class="block" id="proyek" aria-labelledby="proyek-title">
     <div class="block-head reveal">
-      <h3>Proyek Pilihan <span class="line"></span></h3>
+      <h2 id="proyek-title">Proyek Pilihan <span class="line"></span></h2>
       <div class="segmented glass" role="tablist" aria-label="Filter proyek">
         <span class="seg-thumb" aria-hidden="true"></span>
         <button role="tab" aria-selected="true" data-filter="all">Semua</button>
@@ -95,8 +127,8 @@
       <article class="card glass reveal" data-tags="ai film">
         <div class="art art-wave" aria-hidden="true"><canvas class="wave"></canvas></div>
         <div class="card-body">
-          <div><h4>VoiceCraft AI</h4><p>AI-powered audio restoration<br>for film postproduction</p></div>
-          <a class="round glass" href="#" aria-label="Buka VoiceCraft AI"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <div><h3>VoiceCraft AI</h3><p>AI-powered audio restoration for film postproduction</p></div>
+          <button class="round glass" type="button" data-project="voicecraft" aria-haspopup="dialog" aria-label="Lihat detail VoiceCraft AI"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </article>
       <article class="card glass reveal" data-tags="ai">
@@ -104,46 +136,27 @@
           <div class="slab s1"></div><div class="slab s2"></div><div class="slab s3"></div>
         </div>
         <div class="card-body">
-          <div><h4>Simpul Creative Cloud</h4><p>Offline creative suite with<br>local AI tools</p></div>
-          <a class="round glass" href="#" aria-label="Buka Simpul Creative Cloud"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <div><h3>Simpul Creative Cloud</h3><p>Offline creative suite with local AI tools</p></div>
+          <button class="round glass" type="button" data-project="simpulcloud" aria-haspopup="dialog" aria-label="Lihat detail Simpul Creative Cloud"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </article>
       <article class="card glass reveal" data-tags="film">
         <div class="art art-sphere" aria-hidden="true"><div class="sphere"></div><div class="sphere ghost"></div></div>
         <div class="card-body">
-          <div><h4>SimpulEyes 4</h4><p>Modern audio sync tool<br>inspired by PluralEyes</p></div>
-          <a class="round glass" href="#" aria-label="Buka SimpulEyes 4"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <div><h3>SimpulEyes 4</h3><p>Modern audio sync tool inspired by PluralEyes</p></div>
+          <button class="round glass" type="button" data-project="simpuleyes" aria-haspopup="dialog" aria-label="Lihat detail SimpulEyes 4"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </article>
     </div>
   </section>
 
-  <!-- ===== Skills ===== -->
-  <section class="block" id="keahlian">
-    <div class="block-head reveal"><h3>Keahlian <span class="line"></span></h3></div>
-    <ul class="chips reveal">
-      <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#4b8bd4" d="M11.9 2C7 2 7.3 4.1 7.3 4.1v2.2h4.7V7H5.4S2 6.6 2 11.9s2.9 5.1 2.9 5.1h1.8v-2.5s-.1-2.9 2.9-2.9h4.8s2.8 0 2.8-2.7V4.6S17.6 2 11.9 2zM9.3 3.5a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8z"/><path fill="#ffd43b" d="M12.1 22c4.9 0 4.6-2.1 4.6-2.1v-2.2H12V17h6.6s3.4.4 3.4-4.9-2.9-5.1-2.9-5.1h-1.8v2.5s.1 2.9-2.9 2.9H9.6s-2.8 0-2.8 2.7v4.3S6.4 22 12.1 22zm2.6-1.5a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8z"/></svg>Python</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="none" stroke="#ee4c2c" stroke-width="2.2" stroke-linecap="round" d="M12.5 3.5 8 8a6.4 6.4 0 1 0 9 0"/><circle cx="15.6" cy="6.3" r="1.3" fill="#ee4c2c"/></svg>PyTorch</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#ff8f00" d="M12 2 3 7v4l6-3.3V22l3 1.6V5.5l3 1.7V10l-1.5.9v3.4L15 13.5V22l3-1.7v-12L21 10V7z"/></svg>TensorFlow</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="1.3"><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/><circle cx="12" cy="12" r="1.8" fill="#61dafb" stroke="none"/></svg>React</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4" fill="#00005b"/><text x="12" y="16.3" text-anchor="middle" font-family="Inter,Arial" font-weight="700" font-size="11" fill="#9999ff">Pr</text></svg>Premiere Pro</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1d1f2b"/><circle cx="12" cy="8.2" r="3.4" fill="#e5484d"/><circle cx="8.6" cy="14.2" r="3.4" fill="#2bb673" opacity=".95"/><circle cx="15.4" cy="14.2" r="3.4" fill="#3b82f6" opacity=".95"/></svg>DaVinci Resolve</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7c00" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 7.5 12 12l8-4.5z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5 12 21l8-4.5"/></svg>Gradio</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24"><path fill="#f24e1e" d="M8.5 2H12v6.5H8.5a3.25 3.25 0 0 1 0-6.5z"/><path fill="#ff7262" d="M12 2h3.5a3.25 3.25 0 0 1 0 6.5H12z"/><path fill="#a259ff" d="M8.5 8.5H12V15H8.5a3.25 3.25 0 0 1 0-6.5z"/><circle cx="15.3" cy="11.75" r="3.25" fill="#1abcfe"/><path fill="#0acf83" d="M8.5 15H12v3.25A3.25 3.25 0 1 1 8.5 15z"/></svg>Figma</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#b9c3ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>Audio Processing</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#6ea8ff" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M5 9.5c3.5 3 10.5 3 14 0" stroke-linecap="round"/><circle cx="12" cy="13.5" r="2.2" fill="#6ea8ff" stroke="none"/></svg>Machine Learning</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#c8cde6" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" stroke-opacity=".5"/></svg>Video Editing</li>
-      <li class="chip glass"><svg viewBox="0 0 24 24" fill="none" stroke="#9aa6d8" stroke-width="1.7" stroke-linejoin="round"><path d="M4 5h8v14H6a2 2 0 0 1-2-2z"/><path d="M12 5h6a2 2 0 0 1 2 2v12h-8"/><path d="M8 9v6"/></svg>UI/UX Design</li>
-    </ul>
-  </section>
-
   <!-- ===== Contact ===== -->
-  <section class="contact glass panel reveal" id="kontak">
+  <section class="contact glass panel reveal" id="kontak" aria-labelledby="kontak-title">
     <div class="contact-ribbon" aria-hidden="true"></div>
     <div>
-      <h3>Mari Terhubung</h3>
+      <h2 id="kontak-title">Mari Terhubung</h2>
       <p class="muted">Saya selalu terbuka untuk diskusi, <br>kolaborasi, atau sekadar berbincang.</p>
-      <button class="btn glass" data-open-sheet>Hubungi Saya <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <button class="btn glass" type="button" data-open-sheet="sheet" aria-haspopup="dialog">Hubungi Saya <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>
     <div class="socials">
       <a class="round glass" href="https://github.com/mochamadr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" class="fill"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></a>
@@ -156,7 +169,7 @@
 
 <footer class="footer">
   <div class="fl"><svg viewBox="0 0 48 28"><path d="M3 25 15 5l9 12 9-12 12 20"/></svg><span>Mochamad Ramdhan</span><small>© 2026</small></div>
-  <div class="fr"><span class="line"></span>Build • Create • Share</div>
+  <div class="fr"><span class="line"></span>Build <i class="dot"></i> Create <i class="dot"></i> Share</div>
 </footer>
 
 <!-- ===== Floating tab bar (mobile) ===== -->
@@ -168,28 +181,54 @@
   <a href="#kontak"><svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.5 7.5L3 21l1.5-5.5A8.5 8.5 0 1 1 21 12z"/></svg><span>Kontak</span></a>
 </nav>
 
-<!-- ===== Contact sheet ===== -->
+<!-- ===== Sheets (dialog) ===== -->
 <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+
 <section class="sheet glass" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
   <span class="grabber" aria-hidden="true"></span>
   <div class="sheet-head">
-    <h3 id="sheetTitle">Kirim Pesan</h3>
-    <button class="icon-btn glass sm" data-close-sheet aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2 id="sheetTitle">Kirim Pesan</h2>
+    <button class="icon-btn glass sm" type="button" data-close-sheet aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
-  <form id="contactForm">
-    <label class="field glass"><span>Nama</span><input name="name" required placeholder="Nama kamu" autocomplete="name"></label>
-    <label class="field glass"><span>Pesan</span><textarea name="msg" rows="4" required placeholder="Ceritakan ide atau proyekmu…"></textarea></label>
+  <form id="contactForm" novalidate>
+    <input type="hidden" name="subject" value="">
+    <p class="form-context" id="formContext" hidden></p>
+    <label class="field glass"><span>Nama</span><input name="name" required placeholder="Nama kamu" autocomplete="name" aria-describedby="err-name"></label>
+    <p class="field-error" id="err-name" hidden>Isi nama kamu terlebih dahulu.</p>
+    <label class="field glass"><span>Pesan</span><textarea name="msg" rows="4" required placeholder="Ceritakan ide atau proyekmu…" aria-describedby="err-msg"></textarea></label>
+    <p class="field-error" id="err-msg" hidden>Pesan tidak boleh kosong.</p>
     <div class="row glass">
-      <span>Ajak kolaborasi proyek</span>
-      <label class="switch"><input type="checkbox" name="collab" checked><i></i></label>
+      <span id="collabLabel">Ajak kolaborasi proyek</span>
+      <label class="switch"><input type="checkbox" name="collab" checked aria-labelledby="collabLabel"><i></i></label>
     </div>
     <div class="row glass slider-row">
       <span>Perkiraan durasi</span>
-      <output id="durOut">4 minggu</output>
+      <output id="durOut" for="dur">4 minggu</output>
       <input type="range" id="dur" name="dur" min="1" max="12" value="4" aria-label="Perkiraan durasi dalam minggu">
     </div>
-    <button type="submit" class="btn glass primary">Kirim via Email <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    <button type="submit" class="btn glass primary"><span class="btn-label">Kirim via Email</span> <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
   </form>
+</section>
+
+<section class="sheet glass" id="projectSheet" role="dialog" aria-modal="true" aria-labelledby="pTitle" hidden>
+  <span class="grabber" aria-hidden="true"></span>
+  <div class="sheet-head">
+    <div>
+      <p class="eyebrow" id="pMeta"></p>
+      <h2 id="pTitle"></h2>
+    </div>
+    <button class="icon-btn glass sm" type="button" data-close-sheet aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <dl class="p-detail">
+    <div><dt>Masalah</dt><dd id="pProblem"></dd></div>
+    <div><dt>Solusi</dt><dd id="pSolution"></dd></div>
+  </dl>
+  <h3 class="p-sub">Teknologi</h3>
+  <ul class="chips mini" id="pStack"></ul>
+  <div class="p-actions">
+    <button class="btn glass" type="button" id="pCode" disabled title="Tautan belum tersedia">Lihat Kode</button>
+    <button class="btn glass primary" type="button" id="pDiscuss">Diskusikan proyek serupa <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+  </div>
 </section>
 
 <script src="script.js"></script>

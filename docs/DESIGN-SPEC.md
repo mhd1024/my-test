@@ -2,7 +2,7 @@
 
 Dokumen ini menyusun ulang keputusan desain website portofolio mengikuti urutan kerja 1–11 pada *Prinsip dan Arahan Perancangan Desain UI/UX Website*. Bagian 10 mengevaluasi implementasi yang sudah online saat ini terhadap spesifikasi ini. Bagian 11 berisi rencana implementasi yang menunggu persetujuan.
 
-Status: draf untuk ditinjau. Versi implementasi yang dievaluasi: commit `86d1eb0`.
+Status: diimplementasikan. Bagian 10 adalah evaluasi terhadap versi sebelumnya (commit `86d1eb0`); semua temuan 1–12 sudah ditangani, temuan 13 menunggu data dari pemilik.
 
 ---
 
@@ -219,7 +219,7 @@ Prinsip Apple: **radius dalam = radius luar − padding**, sehingga lengkung ber
 
 ### 6.4 Keahlian (di dalam Tentang)
 
-| Kelompok (H3) | Isi |
+| Kelompok (H4) | Isi |
 |---|---|
 | AI & Machine Learning | Python, PyTorch, TensorFlow, Gradio, Machine Learning |
 | Pengembangan | React |
@@ -231,7 +231,7 @@ Prinsip Apple: **radius dalam = radius luar − padding**, sehingga lengkung ber
 | Layout | Desktop 4 kolom (satu kolom per kelompok), chip tersusun vertikal. Mobile: kelompok bertumpuk, chip mengalir horizontal |
 | Shape | Chip pill kaca `glass-frost-clear`, tinggi 40 px |
 | Iconography | **Satu gaya ikon:** semua ikon monokrom `ink-2`, garis 1.6 px, grid 24 px. Warna merek hanya muncul saat hover sebagai penanda identitas, bukan dekorasi |
-| Tipografi | H3 kelompok 13/18 · 500 · `ink-3`; label chip 14/20 · 400 |
+| Tipografi | H3 "Keahlian" 17/24 · 500; H4 nama kelompok 13/18 · 500 · `ink-3`; label chip 14/20 · 400 |
 
 ### 6.5 Proyek
 
@@ -444,4 +444,4 @@ Yang sudah sesuai dan dipertahankan: material kaca dengan refraksi, satu titik p
 6. Uji: screenshot desktop/tablet/mobile, mode terang/gelap, keyboard saja, dan hitung ulang kontras.
 7. Deploy ke GitHub Pages.
 
-Langkah 1–7 dikerjakan setelah spesifikasi ini disetujui.
+Langkah 1–7 sudah dikerjakan. Tambahan dari tinjauan pola iOS 26: tab bar mengecil saat scroll ke bawah dan chip keahlian (konten statis) tidak lagi memakai filter refraksi, sehingga jumlah filter berkurang.
