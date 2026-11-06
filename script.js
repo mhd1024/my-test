@@ -274,29 +274,45 @@
       kick();
     }
 
-    root.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
-      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      dragging = false; hover = null;
+    /* A quick tap only selects (the highlight just glides over).
+       The lens appears when the finger is HELD (~250 ms) or starts to slide. */
+    const HOLD_MS = 250;
+    let holdTimer = 0, lensOn = false, lastPX = 0;
+    function showLens() {
+      if (lensOn || !down) return;
+      lensOn = true;
       sizeLens();
       lens.classList.add('on');
       root.classList.add('pressing');
       k = 700; c = 38;                                           // heavy but responsive while held
       S.tp = 1;
-      follow(local(e.clientX));
+      follow(lastPX);
+    }
+    root.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      dragging = false; hover = null; lensOn = false;
+      lastPX = local(e.clientX);
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(showLens, HOLD_MS);
     });
     root.addEventListener('pointermove', e => {
       if (!down || e.pointerId !== down.id) return;
+      lastPX = local(e.clientX);
       if (!dragging) {
         if (Math.abs(e.clientX - down.x) < 6) return;
         if (Math.abs(e.clientY - down.y) > Math.abs(e.clientX - down.x)) return release(false);   // vertical → page scroll
         dragging = true;
+        clearTimeout(holdTimer);
         root.classList.add('dragging');
         try { root.setPointerCapture(e.pointerId); } catch (_) {}
+        showLens();                                              // sliding brings the lens up straight away
       }
-      follow(local(e.clientX));
+      follow(lastPX);
     });
+    root.addEventListener('contextmenu', e => { if (down) e.preventDefault(); });   // long-press menu would cancel the hold
     function release(commit, cx) {
+      clearTimeout(holdTimer); lensOn = false;
       root.classList.remove('pressing', 'dragging');
       S.tp = 0;
       const target = commit && dragging ? nearest(cx) : null;
