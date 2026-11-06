@@ -568,34 +568,55 @@ input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border: 0; bo
 }
 :root[data-theme="light"] .facts, :root[data-theme="light"] .skills { border-color: rgba(60, 70, 140, .14); }
 
-/* ---------- liquid selector: lens press + drag (tab bar, top nav, segmented) ---------- */
+/* ---------- liquid selector: physics indicator + concave lens (tab bar, top nav, segmented) ---------- */
 .liq { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.liq a, .liq button { -webkit-user-drag: none; transition: color .3s ease, scale .22s cubic-bezier(.32, 1.12, .42, 1); }
+.liq a, .liq button { -webkit-user-drag: none; transition: color .3s ease, opacity .12s linear; }
+/* position, size and deformation are driven by the spring in script.js */
 .liq-ind {
-  will-change: transform;
-  transition:
-    transform .55s cubic-bezier(.32, 1.12, .42, 1),
-    width .45s cubic-bezier(.32, 1.12, .42, 1),
-    scale .45s cubic-bezier(.3, 1.5, .4, 1),
-    background .25s ease, box-shadow .25s ease;
+  transform-origin: 50% 50%;
+  overflow: hidden;
+  will-change: transform, width;
+  transition: background .25s ease, box-shadow .25s ease;
+  animation: none !important;
 }
-/* pressed: the indicator becomes a clear lens floating above the items */
+
+/* pressed: a concave (minus) lens — thick bright rim, recessed centre,
+   colour fringes on the left/right rim, slightly frosted backdrop */
 .liq.pressing .liq-ind {
-  z-index: 2; scale: 1.18;
-  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+  z-index: 2;
+  background:
+    radial-gradient(120% 150% at 50% 50%, rgba(8, 10, 34, .42) 0%, rgba(16, 20, 56, .30) 55%, rgba(255, 255, 255, .10) 86%, rgba(255, 255, 255, .24) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.85),
-    inset 0 -1px 1px rgba(255,255,255,.3),
-    inset 0 0 0 .5px rgba(255,255,255,.35),
-    inset 0 0 14px rgba(200,210,255,.18),
-    0 10px 28px -10px rgba(110,130,255,.9);
-  -webkit-backdrop-filter: brightness(1.12) saturate(1.5);
-  backdrop-filter: brightness(1.12) saturate(1.5);
+    inset 0 0 0 1.5px rgba(255, 255, 255, .55),
+    inset 0 7px 10px -4px rgba(0, 0, 20, .55),
+    inset 0 -4px 8px -3px rgba(255, 255, 255, .45),
+    inset 7px 0 9px -5px rgba(255, 70, 120, .45),
+    inset -7px 0 9px -5px rgba(70, 180, 255, .45),
+    0 10px 28px -10px rgba(110, 130, 255, .9);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  backdrop-filter: blur(6px) saturate(1.4);
 }
-:root[data-theme="light"] .liq.pressing .liq-ind { background: rgba(255,255,255,.35); }
-/* dragging: the lens tracks the finger tightly */
-.liq.dragging .liq-ind {
-  transition: transform .07s linear, width .3s cubic-bezier(.32, 1.12, .42, 1), scale .15s ease-out, background .25s ease, box-shadow .25s ease;
+:root[data-theme="light"] .liq.pressing .liq-ind {
+  background: radial-gradient(120% 150% at 50% 50%, rgba(200, 206, 235, .55) 0%, rgba(230, 234, 250, .45) 60%, rgba(255, 255, 255, .7) 100%);
+}
+
+/* the image seen through the lens: a minified copy of the row */
+.lens-view { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; opacity: 0; }
+.lens-clone {
+  position: absolute !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important;
+  translate: none !important; scale: none !important; margin: 0 !important;
+  background: none !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  transition: none !important;
+  filter: drop-shadow(1px 0 0 rgba(255, 60, 110, .55)) drop-shadow(-1px 0 0 rgba(60, 190, 255, .55));
+}
+.lens-clone::before, .lens-clone::after { display: none !important; }
+.lens-clone a, .lens-clone button { opacity: 1 !important; scale: none !important; transition: none !important; }
+/* stronger dispersion only towards the lens edges */
+.lens-fringe {
+  filter: drop-shadow(2.5px 0 0 rgba(255, 40, 100, .8)) drop-shadow(-2.5px 0 0 rgba(40, 170, 255, .8));
+  -webkit-mask-image: linear-gradient(90deg, #000 0, transparent 34%, transparent 66%, #000 100%);
+  mask-image: linear-gradient(90deg, #000 0, transparent 34%, transparent 66%, #000 100%);
 }
 .liq .hot { color: var(--ink); }
 .tabbar.liq .hot { color: var(--accent-soft); }

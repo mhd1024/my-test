@@ -160,73 +160,136 @@
   }, { passive: true });
 
   /* ---------- liquid selector (iOS 26 style) ----------
-     Shared behaviour for every horizontal choice group (tab bar, top nav,
-     segmented filter):
-       press   → the indicator swells into a lens over the finger and the
-                 items beneath it are magnified;
-       drag    → the lens follows the finger, stretching with speed, and
-                 the item under it lights up;
-       release → it springs onto the nearest item and activates it.
-     A plain tap still behaves like a normal click. */
+     Shared by every horizontal choice group (tab bar, top nav, segmented filter).
+
+     Physics: the indicator is a damped spring with mass. While dragging it
+     trails the finger, stretches along the motion and thins across it, and
+     is rubber-banded past the ends. On release it springs onto the nearest
+     item with a slight overshoot and wobble.
+
+     Lens: while pressed it turns into a concave (minus) lens. A copy of the
+     row inside the lens is drawn smaller, as if further away, with red/blue
+     colour fringes that grow towards the lens edges. The items underneath
+     fade so only the lens image is seen. Pure DOM/CSS, so it also works in
+     Safari on iPhone. */
   function liquidSelect(root, indicator, items, isActive) {
     indicator.classList.add('liq-ind');
     root.classList.add('liq');
     items().forEach(it => { it.draggable = false; });
-    let x = 0, w = 0;
-    const place = (nx, nw) => {
-      x = nx; w = nw;
-      indicator.style.left = '0px';
-      indicator.style.width = nw + 'px';
-      indicator.style.transform = `translateX(${nx}px)`;
-    };
-    const active = () => items().find(isActive) || items()[0];
-    const sync = () => { const a = active(); if (a && a.offsetWidth) place(a.offsetLeft, a.offsetWidth); };
 
-    const local = cx => {                        // pointer x in the root's own (unscaled) px
+    // ---- spring state
+    const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, tx: 0, tw: 0, tp: 0 };
+    let k = 420, c = 26;                    // stiffness / damping for x & w (changes while dragging)
+    let raf = 0, last = 0, placed = false;
+
+    // ---- lens image: a minified copy of the row, plus an edge layer with stronger fringes
+    const view = document.createElement('div');
+    view.className = 'lens-view'; view.setAttribute('aria-hidden', 'true');
+    indicator.append(view);
+    let clones = [];
+    function buildClones() {
+      view.innerHTML = '';
+      clones = ['lens-clone', 'lens-clone lens-fringe'].map(cls => {
+        const cl = root.cloneNode(true);
+        cl.querySelectorAll('.liq-ind, .lens-view').forEach(n => n.remove());
+        cl.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+        cl.removeAttribute('id'); cl.removeAttribute('role'); cl.removeAttribute('aria-label');
+        cl.className = root.className.replace(/\b(glass|liq|pressing|dragging)\b/g, '') + ' ' + cls;
+        cl.style.cssText = `width:${root.offsetWidth}px;height:${root.offsetHeight}px`;
+        cl.inert = true;
+        view.append(cl);
+        return cl;
+      });
+    }
+
+    const active = () => items().find(isActive) || items()[0];
+    const bounds = () => { const its = items(); return [its[0].offsetLeft, its.at(-1).offsetLeft + its.at(-1).offsetWidth]; };
+
+    function render() {
+      const st = Math.min(Math.abs(S.vx) / 2600, .26);           // stretch from speed
+      const s = 1 + .2 * S.p;                                    // press swell (spring → jelly pop)
+      const sx = s * (1 + st), sy = s * (1 - st * .55);
+      indicator.style.left = '0px';
+      indicator.style.width = S.w + 'px';
+      indicator.style.transform = `translateX(${S.x}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+      // lens image: counter the swell, then minify like a minus lens
+      if (clones.length) {
+        // map the row point under the lens centre to the lens centre, minified by m
+        const h = indicator.offsetHeight, cx = S.x + S.w / 2, cy = indicator.offsetTop + h / 2;
+        const m = .8 / s;
+        const tf = `translate(${(S.w / 2).toFixed(2)}px, ${(h / 2).toFixed(2)}px) scale(${m.toFixed(4)}) translate(${(-cx).toFixed(2)}px, ${(-cy).toFixed(2)}px)`;
+        clones.forEach(cl => { cl.style.transformOrigin = '0 0'; cl.style.transform = tf; });
+        view.style.opacity = Math.min(1, S.p * 1.4).toFixed(3);
+      }
+      // items under the lens fade out, so only the lens image shows; nearest one is "hot"
+      const lc = S.x + S.w / 2;
+      items().forEach((it, i) => {
+        const ov = Math.max(0, 1 - Math.abs(it.offsetLeft + it.offsetWidth / 2 - lc) / it.offsetWidth);
+        it.style.opacity = S.p > .01 ? (1 - Math.min(1, ov * 1.4) * Math.min(1, S.p)).toFixed(3) : '';
+        const hot = S.p > .3 && ov > .5;
+        it.classList.toggle('hot', hot);
+        clones.forEach(cl => cl.querySelectorAll(it.tagName)[i]?.classList.toggle('hot', hot));
+      });
+    }
+
+    function step(t) {
+      const dt = Math.min(.032, (t - (last || t)) / 1000 || .016); last = t;
+      const ax = -k * (S.x - S.tx) - c * S.vx;               S.vx += ax * dt; S.x += S.vx * dt;
+      const aw = -k * (S.w - S.tw) - c * S.vw;               S.vw += aw * dt; S.w += S.vw * dt;
+      const ap = -520 * (S.p - S.tp) - 20 * S.vp;            S.vp += ap * dt; S.p += S.vp * dt;
+      render();
+      const settled = Math.abs(S.x - S.tx) < .05 && Math.abs(S.vx) < .5 && Math.abs(S.w - S.tw) < .05 && Math.abs(S.vw) < .5 && Math.abs(S.p - S.tp) < .004 && Math.abs(S.vp) < .05;
+      if (settled) {
+        S.x = S.tx; S.w = S.tw; S.p = S.tp; S.vx = S.vw = S.vp = 0; render(); raf = 0; last = 0;
+        if (!S.tp && clones.length) { view.innerHTML = ''; clones = []; items().forEach(it => it.style.opacity = ''); }
+      } else raf = requestAnimationFrame(step);
+    }
+    const kick = () => { if (reduce) { S.x = S.tx; S.w = S.tw; S.p = S.tp; render(); return; } if (!raf) raf = requestAnimationFrame(step); };
+
+    function sync(now) {
+      const a = active(); if (!a || !a.offsetWidth || down) return;
+      if (!now && placed && a.offsetLeft === S.tx && a.offsetWidth === S.tw) return;   // nothing to do (scroll-spy calls often)
+      S.tx = a.offsetLeft; S.tw = a.offsetWidth;
+      if (now || !placed) { S.x = S.tx; S.w = S.tw; S.vx = S.vw = 0; placed = true; render(); }
+      else { k = 420; c = 24; kick(); }                         // springy settle with a little overshoot
+    }
+
+    const local = cx => {                                        // pointer x in the root's own (unscaled) px
       const r = root.getBoundingClientRect();
       return (cx - r.left) * (root.offsetWidth / r.width);
     };
-    const nearest = cx => items().reduce((best, it) => {
+    const nearest = cx => items().reduce((b, it) => {
       const d = Math.abs(it.offsetLeft + it.offsetWidth / 2 - cx);
-      return d < best.d ? { it, d } : best;
+      return d < b.d ? { it, d } : b;
     }, { it: null, d: Infinity }).it;
-    const magnify = center => items().forEach(it => {
-      const k = Math.max(0, 1 - Math.abs(it.offsetLeft + it.offsetWidth / 2 - center) / it.offsetWidth);
-      it.style.scale = (1 + .16 * k).toFixed(3);
-      it.classList.toggle('hot', k > .5);
-    });
-    const unmagnify = () => items().forEach(it => { it.style.scale = ''; it.classList.remove('hot'); });
 
-    let down = null, dragging = false, suppress = false, lastX = 0, lastT = 0, hover = null;
+    let down = null, dragging = false, suppress = false, hover = null;
     function follow(cx) {
-      const its = items(), first = its[0], last = its[its.length - 1];
-      const n = nearest(cx);
-      const nw = n.offsetWidth;
-      const nx = Math.min(Math.max(cx - nw / 2, first.offsetLeft), last.offsetLeft + last.offsetWidth - nw);
-      // stretch with velocity, like liquid being pulled
-      const now = performance.now(), v = Math.abs(cx - lastX) / Math.max(1, now - lastT);
-      lastX = cx; lastT = now;
-      const s = Math.min(v * .35, .28);
-      indicator.style.scale = `${(1.18 + s).toFixed(3)} ${(1.18 - s * .6).toFixed(3)}`;
-      place(nx, nw);
-      magnify(nx + nw / 2);
-      if (n !== hover) { hover = n; if (dragging) navigator.vibrate?.(6); }
+      const n = nearest(cx), [lo, hi] = bounds();
+      S.tw = n.offsetWidth;
+      let tx = cx - S.tw / 2;
+      if (tx < lo) tx = lo - (lo - tx) * .3;                     // rubber band past the ends
+      if (tx > hi - S.tw) tx = hi - S.tw + (tx - (hi - S.tw)) * .3;
+      S.tx = tx;
+      if (n !== hover) { if (hover && dragging) navigator.vibrate?.(6); hover = n; }
+      kick();
     }
 
     root.addEventListener('pointerdown', e => {
       if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
       down = { id: e.pointerId, x: e.clientX, y: e.clientY };
       dragging = false; hover = null;
-      indicator.classList.remove('squish');
+      buildClones();
       root.classList.add('pressing');
-      lastX = local(e.clientX); lastT = performance.now();
-      follow(lastX);
+      k = 700; c = 38;                                           // heavy but responsive while held
+      S.tp = 1;
+      follow(local(e.clientX));
     });
     root.addEventListener('pointermove', e => {
       if (!down || e.pointerId !== down.id) return;
       if (!dragging) {
         if (Math.abs(e.clientX - down.x) < 6) return;
-        if (Math.abs(e.clientY - down.y) > Math.abs(e.clientX - down.x)) return release(false);  // vertical → let the page scroll
+        if (Math.abs(e.clientY - down.y) > Math.abs(e.clientX - down.x)) return release(false);   // vertical → page scroll
         dragging = true;
         root.classList.add('dragging');
         try { root.setPointerCapture(e.pointerId); } catch (_) {}
@@ -235,15 +298,14 @@
     });
     function release(commit, cx) {
       root.classList.remove('pressing', 'dragging');
-      indicator.style.scale = '';
-      unmagnify();
+      S.tp = 0;
       const target = commit && dragging ? nearest(cx) : null;
-      down = null;
+      down = null; dragging = false;
       if (target) {
-        suppress = true;                         // swallow the click the browser fires after a drag
+        suppress = true;                                         // swallow the click fired after a drag
         setTimeout(() => { suppress = false; target.click(); sync(); }, 0);
-      } else setTimeout(sync, 0);              // a tap: the normal click handler moves it
-      dragging = false;
+      } else setTimeout(() => sync(), 0);                        // a tap: the click handler picks the item
+      kick();
     }
     root.addEventListener('pointerup', e => { if (down && e.pointerId === down.id) release(true, local(e.clientX)); });
     root.addEventListener('pointercancel', () => down && release(false));
@@ -251,8 +313,8 @@
     root.addEventListener('lostpointercapture', e => e.target === root && down && dragging && release(false));
     root.addEventListener('click', e => { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
 
-    addEventListener('resize', sync);
-    document.fonts?.ready.then(sync);
+    addEventListener('resize', () => sync(true));
+    document.fonts?.ready.then(() => sync(true));
     return { sync };
   }
 
@@ -263,13 +325,7 @@
   const tabSel = liquidSelect($('.tabbar'), blob, () => tabLinks, a => a.classList.contains('active'));
   function setActive(id) {
     navLinks.forEach(a => a.classList.toggle('active', a.hash === '#' + id));
-    tabLinks.forEach((a, i) => {
-      const on = a.hash === '#' + id;
-      if (on && !a.classList.contains('active')) {
-        blob.classList.remove('squish'); void blob.offsetWidth; blob.classList.add('squish');
-      }
-      a.classList.toggle('active', on);
-    });
+    tabLinks.forEach(a => a.classList.toggle('active', a.hash === '#' + id));
     navSel.sync(); tabSel.sync();
   }
   const movePill = () => navSel.sync();
@@ -333,18 +389,18 @@
 
   /* ---------- segmented control filter ---------- */
   const seg = $('.segmented'), thumb = $('.seg-thumb');
-  const segSel = liquidSelect(seg, thumb, () => $$('button', seg), b => b.getAttribute('aria-selected') === 'true');
+  const segSel = liquidSelect(seg, thumb, () => $$(':scope > button', seg), b => b.getAttribute('aria-selected') === 'true');
   const moveThumb = () => segSel.sync();
-  $$('button', seg).forEach(b => b.addEventListener('click', () => {
-    $$('button', seg).forEach(x => x.setAttribute('aria-selected', x === b));
+  $$(':scope > button', seg).forEach(b => b.addEventListener('click', () => {
+    $$(':scope > button', seg).forEach(x => x.setAttribute('aria-selected', x === b));
     moveThumb();
     const f = b.dataset.filter;
     $$('.card').forEach(c => c.classList.toggle('dim', f !== 'all' && !c.dataset.tags.includes(f)));
   }));
-  const syncTabIndex = () => $$('button', seg).forEach(b => b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1);
+  const syncTabIndex = () => $$(':scope > button', seg).forEach(b => b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1);
   seg.addEventListener('keydown', e => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const bs = $$('button', seg), i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true');
+    const bs = $$(':scope > button', seg), i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true');
     const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
     n.click(); n.focus(); e.preventDefault();
   });
