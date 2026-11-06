@@ -159,26 +159,120 @@
     }
   }, { passive: true });
 
+  /* ---------- liquid selector (iOS 26 style) ----------
+     Shared behaviour for every horizontal choice group (tab bar, top nav,
+     segmented filter):
+       press   → the indicator swells into a lens over the finger and the
+                 items beneath it are magnified;
+       drag    → the lens follows the finger, stretching with speed, and
+                 the item under it lights up;
+       release → it springs onto the nearest item and activates it.
+     A plain tap still behaves like a normal click. */
+  function liquidSelect(root, indicator, items, isActive) {
+    indicator.classList.add('liq-ind');
+    root.classList.add('liq');
+    items().forEach(it => { it.draggable = false; });
+    let x = 0, w = 0;
+    const place = (nx, nw) => {
+      x = nx; w = nw;
+      indicator.style.left = '0px';
+      indicator.style.width = nw + 'px';
+      indicator.style.transform = `translateX(${nx}px)`;
+    };
+    const active = () => items().find(isActive) || items()[0];
+    const sync = () => { const a = active(); if (a && a.offsetWidth) place(a.offsetLeft, a.offsetWidth); };
+
+    const local = cx => {                        // pointer x in the root's own (unscaled) px
+      const r = root.getBoundingClientRect();
+      return (cx - r.left) * (root.offsetWidth / r.width);
+    };
+    const nearest = cx => items().reduce((best, it) => {
+      const d = Math.abs(it.offsetLeft + it.offsetWidth / 2 - cx);
+      return d < best.d ? { it, d } : best;
+    }, { it: null, d: Infinity }).it;
+    const magnify = center => items().forEach(it => {
+      const k = Math.max(0, 1 - Math.abs(it.offsetLeft + it.offsetWidth / 2 - center) / it.offsetWidth);
+      it.style.scale = (1 + .16 * k).toFixed(3);
+      it.classList.toggle('hot', k > .5);
+    });
+    const unmagnify = () => items().forEach(it => { it.style.scale = ''; it.classList.remove('hot'); });
+
+    let down = null, dragging = false, suppress = false, lastX = 0, lastT = 0, hover = null;
+    function follow(cx) {
+      const its = items(), first = its[0], last = its[its.length - 1];
+      const n = nearest(cx);
+      const nw = n.offsetWidth;
+      const nx = Math.min(Math.max(cx - nw / 2, first.offsetLeft), last.offsetLeft + last.offsetWidth - nw);
+      // stretch with velocity, like liquid being pulled
+      const now = performance.now(), v = Math.abs(cx - lastX) / Math.max(1, now - lastT);
+      lastX = cx; lastT = now;
+      const s = Math.min(v * .35, .28);
+      indicator.style.scale = `${(1.18 + s).toFixed(3)} ${(1.18 - s * .6).toFixed(3)}`;
+      place(nx, nw);
+      magnify(nx + nw / 2);
+      if (n !== hover) { hover = n; if (dragging) navigator.vibrate?.(6); }
+    }
+
+    root.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      dragging = false; hover = null;
+      indicator.classList.remove('squish');
+      root.classList.add('pressing');
+      lastX = local(e.clientX); lastT = performance.now();
+      follow(lastX);
+    });
+    root.addEventListener('pointermove', e => {
+      if (!down || e.pointerId !== down.id) return;
+      if (!dragging) {
+        if (Math.abs(e.clientX - down.x) < 6) return;
+        if (Math.abs(e.clientY - down.y) > Math.abs(e.clientX - down.x)) return release(false);  // vertical → let the page scroll
+        dragging = true;
+        root.classList.add('dragging');
+        try { root.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      follow(local(e.clientX));
+    });
+    function release(commit, cx) {
+      root.classList.remove('pressing', 'dragging');
+      indicator.style.scale = '';
+      unmagnify();
+      const target = commit && dragging ? nearest(cx) : null;
+      down = null;
+      if (target) {
+        suppress = true;                         // swallow the click the browser fires after a drag
+        setTimeout(() => { suppress = false; target.click(); sync(); }, 0);
+      } else setTimeout(sync, 0);              // a tap: the normal click handler moves it
+      dragging = false;
+    }
+    root.addEventListener('pointerup', e => { if (down && e.pointerId === down.id) release(true, local(e.clientX)); });
+    root.addEventListener('pointercancel', () => down && release(false));
+    // only the root's own capture matters (an icon losing its implicit touch capture also bubbles here)
+    root.addEventListener('lostpointercapture', e => e.target === root && down && dragging && release(false));
+    root.addEventListener('click', e => { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
+
+    addEventListener('resize', sync);
+    document.fonts?.ready.then(sync);
+    return { sync };
+  }
+
   /* ---------- liquid nav pill + tab blob + scroll spy ---------- */
   const navLinks = $$('.nav a'), pill = $('.nav-pill');
   const tabLinks = $$('.tabbar a'), blob = $('.tab-blob');
+  const navSel = liquidSelect($('.nav'), pill, () => navLinks, a => a.classList.contains('active'));
+  const tabSel = liquidSelect($('.tabbar'), blob, () => tabLinks, a => a.classList.contains('active'));
   function setActive(id) {
     navLinks.forEach(a => a.classList.toggle('active', a.hash === '#' + id));
     tabLinks.forEach((a, i) => {
       const on = a.hash === '#' + id;
       if (on && !a.classList.contains('active')) {
-        blob.style.transform = `translateX(${i * 100}%)`;
         blob.classList.remove('squish'); void blob.offsetWidth; blob.classList.add('squish');
       }
       a.classList.toggle('active', on);
     });
-    movePill();
+    navSel.sync(); tabSel.sync();
   }
-  function movePill() {
-    const a = $('.nav a.active'); if (!a || !a.offsetWidth) return;
-    pill.style.width = a.offsetWidth + 'px';
-    pill.style.transform = `translateX(${a.offsetLeft}px)`;
-  }
+  const movePill = () => navSel.sync();
   addEventListener('resize', movePill);
   document.fonts?.ready.then(movePill); movePill();
 
@@ -239,11 +333,8 @@
 
   /* ---------- segmented control filter ---------- */
   const seg = $('.segmented'), thumb = $('.seg-thumb');
-  function moveThumb() {
-    const b = $('[aria-selected="true"]', seg);
-    thumb.style.width = b.offsetWidth + 'px';
-    thumb.style.transform = `translateX(${b.offsetLeft}px)`;
-  }
+  const segSel = liquidSelect(seg, thumb, () => $$('button', seg), b => b.getAttribute('aria-selected') === 'true');
+  const moveThumb = () => segSel.sync();
   $$('button', seg).forEach(b => b.addEventListener('click', () => {
     $$('button', seg).forEach(x => x.setAttribute('aria-selected', x === b));
     moveThumb();
