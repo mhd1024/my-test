@@ -43,7 +43,7 @@ Status: diimplementasikan. Bagian 10 adalah evaluasi terhadap versi sebelumnya (
    - *Muncul lewat lensing.* Saat ditahan, highlight berubah menjadi lensa dengan kekuatan pembiasan naik dari 0, bukan lewat fade.
    - *Menyala dari titik sentuh.* Cahaya mulai di bawah jari lalu menyebar ke seluruh lensa.
    - Ketukan singkat hanya memilih; lensa muncul saat ditahan (~250 ms) atau digeser, dan lemparan cepat membawa momentum ke item berikutnya.
-   - Catatan: panduan Apple menyarankan kaca hanya untuk lapisan navigasi/kontrol. Panel konten di website ini tetap berbahan kaca mengikuti mockup pemilik (keputusan terbuka).
+   - Keputusan pemilik: panel konten (Tentang, kartu proyek, Kontak) **tetap berbahan kaca sesuai mockup**, meskipun panduan Apple menyarankan kaca hanya untuk lapisan navigasi/kontrol. Ini penyimpangan yang disengaja demi identitas visual.
 
 ---
 
