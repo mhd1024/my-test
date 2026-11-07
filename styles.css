@@ -568,11 +568,12 @@ input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border: 0; bo
 }
 :root[data-theme="light"] .facts, :root[data-theme="light"] .skills { border-color: rgba(60, 70, 140, .14); }
 
-/* ---------- liquid selector: spring-driven highlight + floating press lens ---------- */
+/* ---------- liquid selector: gel highlight + press lens (after Apple's Liquid Glass) ---------- */
 .liq { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .liq a, .liq button { -webkit-user-drag: none; transition: color .3s ease; }
-/* position, size and deformation of the in-bar highlight come from the spring in script.js */
+/* position, size and stretch of the in-bar highlight come from the springs in script.js */
 .liq-ind {
+  border-radius: 999px !important;
   transform-origin: 50% 50%;
   will-change: transform, width, opacity;
   animation: none !important;
@@ -580,47 +581,53 @@ input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border: 0; bo
 .liq .hot { color: var(--ink); }
 .tabbar.liq .hot { color: var(--accent-soft); }
 
-/* The press lens: clear glass that floats above the bar and pops out past
-   its top and bottom. Chromium additionally gets a strong SVG refraction
-   with colour dispersion on the rim (see applyGlass / data-lg-*). */
+/* The lens: a clear capsule floating above the bar, bigger than it.
+   Flat clear centre; the rim bends what is beneath (SVG filter set in JS).
+   Regular-variant fallback where backdrop bending isn't supported: a light
+   blur so the real row underneath recedes behind the bent copy. */
 .lens {
   position: fixed; left: 0; top: 0; z-index: 80;
   border-radius: 999px; pointer-events: none;
   opacity: 0; visibility: hidden;
   transform-origin: 50% 50%;
   will-change: transform, opacity;
-  --frost: .4;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02) 50%, rgba(255,255,255,.06));
-  -webkit-backdrop-filter: blur(.4px) brightness(1.12);
-  backdrop-filter: blur(.4px) brightness(1.12);
+  background: rgba(255, 255, 255, .035);
+  -webkit-backdrop-filter: blur(2.5px) brightness(1.06);
+  backdrop-filter: blur(2.5px) brightness(1.06);
   box-shadow:
-    inset 0 1.5px 1px rgba(255,255,255,.9),
-    inset 0 -1.5px 2px rgba(255,255,255,.5),
-    inset 0 0 0 .5px rgba(255,255,255,.55),
-    inset 0 0 22px rgba(255,255,255,.10),
-    0 12px 30px -12px rgba(0,0,20,.45),
-    0 1px 3px rgba(0,0,20,.15);
+    inset 0 0 0 .5px rgba(255, 255, 255, .35),
+    inset 0 0 16px rgba(255, 255, 255, calc(.14 * var(--g, 0))),
+    0 10px 28px -12px rgba(0, 0, 20, .5),
+    0 1px 3px rgba(0, 0, 20, .18);
 }
 .lens.on { visibility: visible; }
-/* rim: mostly clear silver; colour only appears faintly where light bends,
-   at the two ends (warm on one side, cool on the other) — like real glass */
+.lens-view { position: absolute; inset: 0; z-index: 1; overflow: hidden; border-radius: inherit; }
+.lens-clone {
+  position: absolute !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important;
+  translate: none !important; scale: none !important; margin: 0 !important;
+  background: none !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  transition: none !important;
+}
+.lens-clone::before, .lens-clone::after { display: none !important; }
+.lens-clone a, .lens-clone button { opacity: 1 !important; transition: none !important; }
+
+/* specular rim: thin, lit from the upper left (light travels round the silhouette) */
 .lens::before {
-  padding: 1.5px;
-  background:
-    linear-gradient(90deg,
-      rgba(255,190,215,.55) 0%, rgba(255,255,255,.75) 9%, rgba(255,255,255,.28) 24%,
-      rgba(255,255,255,.14) 50%,
-      rgba(255,255,255,.28) 76%, rgba(255,255,255,.75) 91%, rgba(185,225,255,.55) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 40%, rgba(255,255,255,.25));
-  filter: none;
-  opacity: 1;
+  content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none;
+  padding: 1px;
+  background: linear-gradient(150deg,
+    rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, .25) 18%, rgba(255, 255, 255, .05) 45%,
+    rgba(255, 255, 255, .16) 75%, rgba(255, 255, 255, .7) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
 }
-/* bright specular sweep on the upper-left, like light hitting thick glass */
+/* energised by touch: light starts under the fingertip and spreads through the glass */
 .lens::after {
-  opacity: 1;
-  background:
-    radial-gradient(70% 55% at 28% 18%, rgba(255,255,255,.45), transparent 60%),
-    radial-gradient(60% 50% at 78% 92%, rgba(255,255,255,.18), transparent 65%);
+  content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%),
+    rgba(255, 255, 255, calc(.28 * var(--g, 0))) 0,
+    rgba(255, 255, 255, calc(.10 * var(--g, 0))) calc(16px + 50px * var(--g, 0)),
+    transparent calc(28px + 110px * var(--g, 0)));
 }
-:root[data-theme="light"] .lens { background: linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,.12) 45%, rgba(255,255,255,.25)); }
+:root[data-theme="light"] .lens { background: rgba(255, 255, 255, .22); }

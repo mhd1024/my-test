@@ -37,6 +37,13 @@ Status: diimplementasikan. Bagian 10 adalah evaluasi terhadap versi sebelumnya (
 3. **Tidak ada dekorasi kaca yang mengambang tanpa fungsi.** Setiap bentuk kaca harus berupa komponen yang bisa disentuh atau wadah konten.
 4. **Kaca bening, bukan buram.** Blur rendah (3–7 px) ditambah refraksi di tepi. Blur tinggi (14 px) hanya untuk sheet modal, agar fokus berpindah ke dialog.
 5. **Minimalism mengatur jumlah.** Satu titik fokus per layar, satu aksen warna (biru-violet), dan ruang kosong yang luas.
+6. **Perilaku mengikuti Liquid Glass Apple** (riset WWDC25 *Meet Liquid Glass* dan HIG Materials):
+   - *Gel, bukan gelembung.* Pegas hampir teredam kritis (tanpa pantulan bolak-balik), bentuk tetap kapsul, dan hanya melentur sesuai kecepatan.
+   - *Lensing, bukan blur.* Bagian tengah datar dan bening; hanya tepi cembung yang membengkokkan isi di bawahnya. Distorsi warna muncul dari pembengkokan itu, bukan dari garis pelangi yang digambar.
+   - *Muncul lewat lensing.* Saat ditahan, highlight berubah menjadi lensa dengan kekuatan pembiasan naik dari 0, bukan lewat fade.
+   - *Menyala dari titik sentuh.* Cahaya mulai di bawah jari lalu menyebar ke seluruh lensa.
+   - Ketukan singkat hanya memilih; lensa muncul saat ditahan (~250 ms) atau digeser, dan lemparan cepat membawa momentum ke item berikutnya.
+   - Catatan: panduan Apple menyarankan kaca hanya untuk lapisan navigasi/kontrol. Panel konten di website ini tetap berbahan kaca mengikuti mockup pemilik (keputusan terbuka).
 
 ---
 

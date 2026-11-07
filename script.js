@@ -161,109 +161,198 @@
     }
   }, { passive: true });
 
-  /* ---------- liquid selector (iOS 26 style) ----------
+  /* ---------- liquid selector (after Apple's Liquid Glass) ----------
      Shared by every horizontal choice group (tab bar, top nav, segmented filter).
+     Follows WWDC25 "Meet Liquid Glass" / HIG Materials:
 
-     Physics: the selection is a damped spring with mass. While dragging it
-     trails the finger, stretches along the motion and thins across it, and
-     is rubber-banded past the ends. On release it springs onto the nearest
-     item with a slight overshoot and wobble.
+     - Gel, not bubble: springs are close to critically damped, so the
+       selection flexes with the finger and settles without bouncing back
+       and forth. It always stays a capsule; it only stretches with speed.
+     - Lensing, not blur: a flat clear centre and a convex rim that bends
+       what is underneath. The colour separation comes from that bending
+       (each channel bends a little differently), not from a painted rainbow.
+     - Materialises by ramping the light bending up/down, not by fading.
+     - Energises on touch: light starts under the fingertip and spreads.
+     - A tap just selects; the lens appears on hold (~250 ms) or slide,
+       and a flick carries momentum to the next item.
 
-     Lens: on press the in-bar highlight morphs into a clear glass lens that
-     floats ABOVE the bar and is bigger than it (it pops out top and bottom).
-     It lives outside the bar so it can bend whatever is behind it — page
-     content included. Its rim refracts strongly with prismatic colour
-     fringes (real SVG displacement in Chromium; iridescent rim drawn in CSS
-     everywhere, including Safari on iPhone). Items under it stay crisp. */
+     Cross-browser lensing: a copy of the row inside the lens is bent with
+     an SVG filter on `filter:` (works in Safari on iPhone too). Chromium
+     additionally bends the page behind the lens via `backdrop-filter:`. */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  let lensDefs = null, lensUid = 0;
+  function lensSvg() {
+    if (!lensDefs) {
+      lensDefs = document.createElementNS(SVGNS, 'svg');
+      lensDefs.setAttribute('width', 0); lensDefs.setAttribute('height', 0);
+      lensDefs.setAttribute('aria-hidden', 'true');
+      lensDefs.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
+      document.body.prepend(lensDefs);
+    }
+    return lensDefs;
+  }
+  // displacement map for a capsule with a convex rim: neutral (flat) centre,
+  // bending that grows towards the edge, pointing inward
+  function lensMap(w, h, bezel) {
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+    const r = h / 2, hx = w / 2, hy = h / 2, ix = hx - r;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x + .5 - hx, py = y + .5 - hy;
+      const qx = Math.max(Math.abs(px) - ix, 0), l = Math.hypot(qx, py) || 1;
+      const dist = r - l;                                           // depth inside the rim
+      let nx = qx / l * Math.sign(px), ny = py / l;
+      if (!qx) { nx = 0; ny = Math.sign(py); }
+      const t = Math.min(1, Math.max(0, dist) / bezel), m = Math.pow(1 - t, 2.2);
+      const i = (y * w + x) * 4;
+      d[i] = 128 - nx * m * 127; d[i + 1] = 128 - ny * m * 127; d[i + 2] = 128; d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    return cv.toDataURL();
+  }
+
   function liquidSelect(root, indicator, items, isActive) {
     indicator.classList.add('liq-ind');
     root.classList.add('liq');
     items().forEach(it => { it.draggable = false; });
 
-    // ---- spring state (x / w in the root's own px; p = press amount 0..1)
-    const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, tx: 0, tw: 0, tp: 0, d: 0, vd: 0 };
-    let k = 420, c = 26;
+    // ---- springs. x / w in the root's own px; p = press (0..1); d = stretch; g = glow
+    const S = { x: 0, vx: 0, w: 0, vw: 0, p: 0, vp: 0, d: 0, vd: 0, g: 0, vg: 0, tx: 0, tw: 0, tp: 0, tg: 0 };
+    const crit = (k, z) => 2 * Math.sqrt(k) * z;                     // damping for ratio z (1 = no bounce)
+    let k = 420, c = crit(420, .86);
     let raf = 0, last = 0, placed = false;
 
-    // ---- floating lens (sibling of the page, not of the bar)
+    // ---- floating lens: clear capsule above the bar, bigger than it
     const lens = document.createElement('div');
-    lens.className = 'glass lens';
-    lens.setAttribute('aria-hidden', 'true');
-    Object.assign(lens.dataset, { lgScale: '46', lgDisp: '.05', lgBezel: '14', lgPost: 'brightness(1.12)' });
+    lens.className = 'lens'; lens.setAttribute('aria-hidden', 'true');
+    const view = document.createElement('div'); view.className = 'lens-view';
+    lens.append(view);
     document.body.append(lens);
-    let LW = 0, LH = 0;                                          // lens box at full press
-    const POP_W = 1.45, POP_H = 1.28;                            // how far it grows past the item / bar
+    const fid = 'lens-f' + (++lensUid);
+    let filt = null, LW = 0, LH = 0, clone = null, mapKey = '';
+    const POP_W = 1.45, POP_H = 1.28, BEND = 22, DISP = isChromium ? .09 : .04;   // the copy on Safari has crisp edges, so less spread
     function sizeLens() {
       const r = root.getBoundingClientRect(), kx = r.width / root.offsetWidth;
       const maxW = Math.max(...items().map(it => it.offsetWidth));
       LW = Math.round(maxW * kx * POP_W); LH = Math.round(r.height * POP_H);
       lens.style.width = LW + 'px'; lens.style.height = LH + 'px';
-      window.__applyGlass?.();                                   // (re)build its refraction map for this size
+      const key = LW + 'x' + LH;
+      if (key !== mapKey) {
+        mapKey = key;
+        filt?.remove();
+        filt = document.createElementNS(SVGNS, 'filter');
+        filt.id = fid;
+        for (const [a, v] of Object.entries({ x: 0, y: 0, width: LW, height: LH, filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB' })) filt.setAttribute(a, v);
+        const map = lensMap(LW, LH, Math.round(LH * .34));
+        filt.innerHTML = `
+          <feImage href="${map}" x="0" y="0" width="${LW}" height="${LH}" preserveAspectRatio="none" result="map"/>
+          <feDisplacementMap in="SourceGraphic" in2="map" scale="0" xChannelSelector="R" yChannelSelector="G" result="dR"/>
+          <feDisplacementMap in="SourceGraphic" in2="map" scale="0" xChannelSelector="R" yChannelSelector="G" result="dG"/>
+          <feDisplacementMap in="SourceGraphic" in2="map" scale="0" xChannelSelector="R" yChannelSelector="G" result="dB"/>
+          <feColorMatrix in="dR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cR"/>
+          <feColorMatrix in="dG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cG"/>
+          <feColorMatrix in="dB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cB"/>
+          <feComposite in="cR" in2="cG" operator="arithmetic" k2="1" k3="1" result="rg"/>
+          <feComposite in="rg" in2="cB" operator="arithmetic" k2="1" k3="1"/>`;
+        filt.querySelector('feImage').setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', map);   // older Safari
+        lensSvg().append(filt);
+        if (!isChromium) view.style.filter = `url(#${fid})`;
+        if (isChromium) { lens.style.backdropFilter = lens.style.webkitBackdropFilter = `url(#${fid}) brightness(1.06)`; }
+      }
+    }
+    function buildClone() {
+      clone?.remove();
+      clone = root.cloneNode(true);
+      clone.querySelectorAll('.liq-ind').forEach(n => n.remove());
+      clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+      ['id', 'role', 'aria-label'].forEach(a => clone.removeAttribute(a));
+      clone.className = root.className.replace(/\b(glass|liq|pressing|dragging|mini)\b/g, '') + ' lens-clone';
+      clone.style.cssText = `width:${root.offsetWidth}px;height:${root.offsetHeight}px;transform-origin:0 0`;
+      clone.inert = true;
+      view.append(clone);
     }
 
     const active = () => items().find(isActive) || items()[0];
     const bounds = () => { const its = items(); return [its[0].offsetLeft, its.at(-1).offsetLeft + its.at(-1).offsetWidth]; };
 
-    /* Droplet shape: moving right, the leading (right) end grows long and
-       pointed while the trailing end goes blunt, and the body thins; the
-       loose shape spring then makes it wobble like jelly when it stops. */
-    const dropRadius = (h, d) => {
-      const r = h / 2, a = Math.min(.7, Math.abs(d) * .75);
-      const lead = r * (1 + a * 1.1), trail = r * (1 - a * .55);
-      const [L, R] = d >= 0 ? [trail, lead] : [lead, trail];
-      return `${L.toFixed(1)}px ${R.toFixed(1)}px ${R.toFixed(1)}px ${L.toFixed(1)}px / ${r.toFixed(1)}px`;
-    };
     function render() {
-      const st = Math.min(Math.abs(S.d), 1) * .24;                // stretch from the shape spring
-      const sx = 1 + st, sy = 1 - st * .6;
-      const swell = 1 + .2 * S.p;
+      const st = Math.min(1, Math.abs(S.d));
+      const sx = 1 + .18 * st, sy = 1 - .1 * st;                   // gel stretch, always a capsule
+      const p = Math.max(0, Math.min(1.2, S.p));
+      const swell = 1 + .12 * p;
       indicator.style.left = '0px';
       indicator.style.width = S.w + 'px';
       indicator.style.transform = `translateX(${S.x}px) scale(${(sx * swell).toFixed(4)}, ${(sy * swell).toFixed(4)})`;
-      indicator.style.borderRadius = dropRadius(indicator.offsetHeight, S.d);
-      const morph = Math.min(1, Math.max(0, S.p) * 2.5);          // 0 = in-bar highlight, 1 = floating lens
-      indicator.style.opacity = (1 - morph).toFixed(3);
-      if (LW) {
+      indicator.style.opacity = (1 - Math.min(1, p * 3)).toFixed(3);
+
+      if (LW && (p > .001 || lens.classList.contains('on'))) {
         const r = root.getBoundingClientRect(), kx = r.width / root.offsetWidth;
-        const cx = r.left + (S.x + S.w / 2) * kx;
-        const cy = r.top + (indicator.offsetTop + indicator.offsetHeight / 2) * kx;
-        // size grows from the highlight's size to the full pop-out lens
-        const p = Math.max(0, S.p);
-        const wNow = S.w * kx * (1 + (POP_W - 1) * p) * sx;
-        const hNow = indicator.offsetHeight * kx * (1 + (r.height / (indicator.offsetHeight * kx) * POP_H - 1) * p) * sy;
-        lens.style.transform = `translate(${(cx - LW / 2).toFixed(2)}px, ${(cy - LH / 2).toFixed(2)}px) scale(${(wNow / LW).toFixed(4)}, ${(hNow / LH).toFixed(4)})`;
-        lens.style.opacity = morph.toFixed(3);
-        lens.style.borderRadius = dropRadius(LH, S.d);
+        const ih = indicator.offsetHeight;
+        const cx = r.left + (S.x + S.w / 2) * kx, cy = r.top + (indicator.offsetTop + ih / 2) * kx;
+        // the highlight grows into the lens as it materialises
+        const wNow = S.w * kx * (1 + (POP_W - 1) * Math.min(1, p)) * sx;
+        const hNow = ih * kx * (1 + (r.height * POP_H / (ih * kx) - 1) * Math.min(1, p)) * sy;
+        const Sx = wNow / LW, Sy = hNow / LH;
+        lens.style.transform = `translate(${(cx - LW / 2).toFixed(2)}px, ${(cy - LH / 2).toFixed(2)}px) scale(${Sx.toFixed(4)}, ${Sy.toFixed(4)})`;
+        lens.style.opacity = Math.min(1, p * 4).toFixed(3);        // only so it never pops; the real change is the bending
+        // materialise: light bending ramps with the press
+        if (filt) {
+          const s = BEND * Math.min(1, p);
+          const dm = filt.querySelectorAll('feDisplacementMap');
+          dm[0].setAttribute('scale', s.toFixed(2)); dm[1].setAttribute('scale', (s * (1 - DISP)).toFixed(2)); dm[2].setAttribute('scale', (s * (1 - 2 * DISP)).toFixed(2));
+        }
+        // the copy of the row lines up exactly with the real one (flat centre = no shift)
+        if (clone) {
+          const qx = LW / 2 + (r.left - cx) / Sx, qy = LH / 2 + (r.top - cy) / Sy;
+          clone.style.transform = `translate(${qx.toFixed(2)}px, ${qy.toFixed(2)}px) scale(${(kx / Sx).toFixed(4)}, ${(kx / Sy).toFixed(4)})`;
+        }
+        // light from the fingertip, spreading through the glass
+        const gx = LW / 2 + (fingerX - cx) / Sx, gy = LH / 2 + (fingerY - cy) / Sy;
+        lens.style.setProperty('--gx', gx.toFixed(1) + 'px');
+        lens.style.setProperty('--gy', gy.toFixed(1) + 'px');
+        lens.style.setProperty('--g', Math.max(0, S.g).toFixed(3));
       }
       const lc = S.x + S.w / 2;
-      items().forEach(it => {
-        const ov = Math.max(0, 1 - Math.abs(it.offsetLeft + it.offsetWidth / 2 - lc) / it.offsetWidth);
-        it.classList.toggle('hot', S.p > .3 && ov > .5);
+      items().forEach((it, i) => {
+        const hot = p > .3 && Math.abs(it.offsetLeft + it.offsetWidth / 2 - lc) < it.offsetWidth / 2;
+        it.classList.toggle('hot', hot);
+        clone?.querySelectorAll(':scope > ' + it.tagName.toLowerCase())[i]?.classList.toggle('hot', hot);
       });
     }
 
     function step(t) {
       const dt = Math.min(.032, (t - (last || t)) / 1000 || .016); last = t;
-      const ax = -k * (S.x - S.tx) - c * S.vx;               S.vx += ax * dt; S.x += S.vx * dt;
-      const aw = -k * (S.w - S.tw) - c * S.vw;               S.vw += aw * dt; S.w += S.vw * dt;
-      const ap = -520 * (S.p - S.tp) - 22 * S.vp;            S.vp += ap * dt; S.p += S.vp * dt;
-      const td = Math.max(-1, Math.min(1, S.vx / 650));
-      const ad = -260 * (S.d - td) - 11 * S.vd;             S.vd += ad * dt; S.d += S.vd * dt;
+      const ax = -k * (S.x - S.tx) - c * S.vx;                   S.vx += ax * dt; S.x += S.vx * dt;
+      const aw = -k * (S.w - S.tw) - c * S.vw;                   S.vw += aw * dt; S.w += S.vw * dt;
+      const ap = -480 * (S.p - S.tp) - crit(480, .8) * S.vp;     S.vp += ap * dt; S.p += S.vp * dt;
+      const td = Math.max(-1, Math.min(1, S.vx / 900));          // stretch follows speed, viscous (no wobble)
+      const ad = -300 * (S.d - td) - crit(300, 1) * S.vd;        S.vd += ad * dt; S.d += S.vd * dt;
+      const ag = -160 * (S.g - S.tg) - crit(160, 1) * S.vg;      S.vg += ag * dt; S.g += S.vg * dt;
       render();
-      const settled = Math.abs(S.x - S.tx) < .05 && Math.abs(S.vx) < .5 && Math.abs(S.w - S.tw) < .05 && Math.abs(S.vw) < .5 && Math.abs(S.p - S.tp) < .004 && Math.abs(S.vp) < .05 && Math.abs(S.d) < .004 && Math.abs(S.vd) < .05;
+      const near = (a, b, e) => Math.abs(a - b) < e;
+      const settled = near(S.x, S.tx, .05) && near(S.vx, 0, .5) && near(S.w, S.tw, .05) && near(S.vw, 0, .5)
+        && near(S.p, S.tp, .004) && near(S.vp, 0, .05) && near(S.d, 0, .004) && near(S.vd, 0, .05) && near(S.g, S.tg, .004) && near(S.vg, 0, .05);
       if (settled) {
-        S.x = S.tx; S.w = S.tw; S.p = S.tp; S.d = 0; S.vx = S.vw = S.vp = S.vd = 0; render(); raf = 0; last = 0;
-        if (!S.tp) lens.classList.remove('on');
+        Object.assign(S, { x: S.tx, w: S.tw, p: S.tp, g: S.tg, d: 0, vx: 0, vw: 0, vp: 0, vd: 0, vg: 0 });
+        render(); raf = 0; last = 0;
+        if (!S.tp) { lens.classList.remove('on'); clone?.remove(); clone = null; }
       } else raf = requestAnimationFrame(step);
     }
-    const kick = () => { if (reduce) { S.x = S.tx; S.w = S.tw; S.p = S.tp; render(); if (!S.tp) lens.classList.remove('on'); return; } if (!raf) raf = requestAnimationFrame(step); };
+    const kick = () => {
+      if (reduce) {                                               // Reduce Motion: no elastic behaviour
+        Object.assign(S, { x: S.tx, w: S.tw, p: S.tp, g: S.tg, d: 0 }); render();
+        if (!S.tp) { lens.classList.remove('on'); clone?.remove(); clone = null; }
+        return;
+      }
+      if (!raf) raf = requestAnimationFrame(step);
+    };
 
     function sync(now) {
       const a = active(); if (!a || !a.offsetWidth || down) return;
       if (!now && placed && a.offsetLeft === S.tx && a.offsetWidth === S.tw) return;   // scroll-spy calls often
       S.tx = a.offsetLeft; S.tw = a.offsetWidth;
       if (now || !placed) { S.x = S.tx; S.w = S.tw; S.vx = S.vw = 0; placed = true; render(); }
-      else { k = 420; c = 24; kick(); }                         // springy settle with a little overshoot
+      else { k = 600; c = crit(600, .86); kick(); }               // gel settle: flexes, barely overshoots
     }
 
     const local = cx => {                                        // pointer x in the root's own (unscaled) px
@@ -271,47 +360,53 @@
       return (cx - r.left) * (root.offsetWidth / r.width);
     };
     const nearest = cx => items().reduce((b, it) => {
-      const d = Math.abs(it.offsetLeft + it.offsetWidth / 2 - cx);
-      return d < b.d ? { it, d } : b;
+      const dd = Math.abs(it.offsetLeft + it.offsetWidth / 2 - cx);
+      return dd < b.d ? { it, d: dd } : b;
     }, { it: null, d: Infinity }).it;
 
     let down = null, dragging = false, suppress = false, hover = null;
+    let fingerX = 0, fingerY = 0, fv = 0, fLast = 0, fT = 0, lastPX = 0;
     function follow(cx) {
       const n = nearest(cx), [lo, hi] = bounds();
       S.tw = n.offsetWidth;
       let tx = cx - S.tw / 2;
-      if (tx < lo) tx = lo - (lo - tx) * .3;                     // rubber band past the ends
-      if (tx > hi - S.tw) tx = hi - S.tw + (tx - (hi - S.tw)) * .3;
+      if (tx < lo) tx = lo - (lo - tx) * .25;                    // resistance past the ends
+      if (tx > hi - S.tw) tx = hi - S.tw + (tx - (hi - S.tw)) * .25;
       S.tx = tx;
       if (n !== hover) { if (hover && dragging) navigator.vibrate?.(6); hover = n; }
       kick();
     }
 
-    /* A quick tap only selects (the highlight just glides over).
+    /* A quick tap only selects (the highlight glides over).
        The lens appears when the finger is HELD (~250 ms) or starts to slide. */
     const HOLD_MS = 250;
-    let holdTimer = 0, lensOn = false, lastPX = 0;
+    let holdTimer = 0, lensOn = false;
     function showLens() {
       if (lensOn || !down) return;
       lensOn = true;
       sizeLens();
+      if (!isChromium) buildClone();                             // Chromium bends the real row through backdrop-filter
       lens.classList.add('on');
       root.classList.add('pressing');
-      k = 700; c = 38;                                           // heavy but responsive while held
-      S.tp = 1;
+      k = 620; c = crit(620, .92);                               // follows closely, with a little drag
+      S.tp = 1; S.tg = 1;
       follow(lastPX);
     }
     root.addEventListener('pointerdown', e => {
       if (e.button !== 0 || !items().some(it => it.contains(e.target))) return;
       down = { id: e.pointerId, x: e.clientX, y: e.clientY };
       dragging = false; hover = null; lensOn = false;
-      lastPX = local(e.clientX);
+      lastPX = local(e.clientX); fingerX = e.clientX; fingerY = e.clientY;
+      fv = 0; fLast = lastPX; fT = performance.now();
       clearTimeout(holdTimer);
       holdTimer = setTimeout(showLens, HOLD_MS);
     });
     root.addEventListener('pointermove', e => {
       if (!down || e.pointerId !== down.id) return;
-      lastPX = local(e.clientX);
+      lastPX = local(e.clientX); fingerX = e.clientX; fingerY = e.clientY;
+      const now = performance.now();
+      fv = .7 * fv + .3 * ((lastPX - fLast) / Math.max(1, now - fT));   // finger speed (px/ms), smoothed
+      fLast = lastPX; fT = now;
       if (!dragging) {
         if (Math.abs(e.clientX - down.x) < 6) return;
         if (Math.abs(e.clientY - down.y) > Math.abs(e.clientX - down.x)) return release(false);   // vertical → page scroll
@@ -323,12 +418,14 @@
       }
       follow(lastPX);
     });
-    root.addEventListener('contextmenu', e => { if (down) e.preventDefault(); });   // long-press menu would cancel the hold
+    root.addEventListener('contextmenu', e => { if (down) e.preventDefault(); });
+
     function release(commit, cx) {
       clearTimeout(holdTimer); lensOn = false;
       root.classList.remove('pressing', 'dragging');
-      S.tp = 0;
-      const target = commit && dragging ? nearest(cx) : null;
+      S.tp = 0; S.tg = 0;
+      // a flick carries momentum: aim where the finger was heading
+      const target = commit && dragging ? nearest(cx + fv * 140) : null;
       down = null; dragging = false;
       if (target) {
         suppress = true;                                         // swallow the click fired after a drag
